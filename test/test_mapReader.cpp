@@ -14,7 +14,11 @@ auto count_time(T func) {
 }
 
 int main() {
+    using namespace ptraceProf::mapsReader;
+    using namespace std;
     std::cout << count_time([]() {
-        ptraceProf::mapsReader::readMaps(2801);
+        for(auto file : readMaps()) {
+        cout << file.first << endl;
+        }
     });
 }

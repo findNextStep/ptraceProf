@@ -2,7 +2,7 @@ project(ptrace_prof)
 
 include_directories(include)
 
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++1z)
 
 add_executable(main main.cpp)
 
