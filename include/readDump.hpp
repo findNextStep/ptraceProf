@@ -8,7 +8,7 @@
 #include <vector>
 
 namespace ptraceProf {
-namespace DumpReader {
+namespace dumpReader {
 
 auto get_order(std::stringstream &&ss) {
     short i;
@@ -46,10 +46,54 @@ auto try_read_header(const std::string &line) {
     char name[100];
     unsigned int addr = -1;
     if(sscanf(line.c_str(), "%x <%s>:", &addr, name) == 2) {
-        return true;
+        return std::string(name);
     } else {
-        return false;
+        return std::string("");
     }
+}
+
+auto read_block(std::istream &is) {
+    std::string line;
+    std::getline(is, line);
+    std::string func_name = try_read_header(line);
+    std::unordered_map < unsigned int, std::tuple <
+    std::vector<unsigned short>,
+        std::string > > result;
+    while(func_name.size()) {
+        std::string line;
+        std::getline(is, line);
+        auto order = deal_line_order(line);
+        if(order.address == -1) {
+            break;
+        }
+        result[order.address] = std::make_tuple(order.order, order.info);
+    }
+    return result;
+}
+
+auto read_objdump(std::istream &is) {
+    std::unordered_map < unsigned int, std::tuple <
+    std::vector<unsigned short>,
+        std::string > > result;
+    while(!is.eof()) {
+        auto block = read_block(is);
+        for(const auto &item : block) {
+            result.emplace(item);
+        }
+    }
+    return result;
+}
+auto read_objdump(std::istream &&is) {
+    std::unordered_map < unsigned int, std::tuple <
+    std::vector<unsigned short>,
+        std::string > > result;
+    while(!is.eof()) {
+        auto block = read_block(is);
+        for(const auto &item : block) {
+            result.emplace(item);
+        }
+    }
+    return result;
 }
 
 } // DumpReader
