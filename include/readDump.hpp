@@ -1,16 +1,16 @@
 #pragma once
 
 #include "pipe.hpp"
-#include "mapsReader.hpp"
 #include <unordered_map>
 #include <sstream>
 #include <string>
 #include <vector>
+#include <istream>
 
 namespace ptraceProf {
 namespace dumpReader {
 
-auto get_order(std::stringstream &&ss) {
+auto get_order(std::istream &&ss) {
     short i;
     std::vector<unsigned short> result;
     result.reserve(8);

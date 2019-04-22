@@ -1,7 +1,5 @@
 #include "mapsReader.hpp"
 #include <iostream>
-#include <fstream>
-#include <string>
 #include <chrono>
 
 template<typename T>
@@ -18,7 +16,7 @@ int main() {
     using namespace std;
     std::cout << count_time([]() {
         for(auto file : readMaps()) {
-        cout << file.first << endl;
+            cout << file.first << endl;
         }
     });
 }

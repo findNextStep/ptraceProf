@@ -2,10 +2,8 @@
 
 #include <string>
 #include <fstream>
-#include <sstream>
 #include <vector>
 #include <map>
-#include <set>
 
 namespace ptraceProf {
 namespace mapsReader {
@@ -38,7 +36,7 @@ inline static auto get_mem_map_from_line(const std::string &line) {
     return std::make_pair(mem_range{start, end, offset}, std::string(file_name));
 }
 
-auto readMaps(std::ifstream &&fs) {
+auto readMaps(std::istream &&fs) {
     std::map<std::string, std::vector<mem_range>> result;
     while(!fs.eof()) {
         std::string line;
