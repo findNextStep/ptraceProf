@@ -4,8 +4,10 @@ project(ptrace_prof)
 include_directories(include)
 
 add_compile_options(-std=c++1z)
+add_compile_options(-g)
 
 add_executable(main main.cpp)
 
 add_executable(map_read_test test/test_mapReader.cpp)
 add_executable(pipe_test test/test_pipe.cpp)
+add_executable(dumpReader_test test/test_readDump.cpp)
