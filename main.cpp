@@ -12,6 +12,8 @@
 #include <dirent.h> // opendir
 #include <sstream>
 
+#include "orderMap.hpp"
+
 bool process_pause(const int pid) {
     if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
         fprintf(stderr, "fail to attach pid :%d\n", pid);
@@ -68,12 +70,63 @@ void some_time_trace(const int pid) {
     }
 }
 
+void dump_and_trace(const int pid) {
+    int status = -1;
+    wait(&status);
+    if(WIFEXITED(status)) { //子进程发送退出信号，退出循环
+        return;
+    }
+    std::cout << "start dump " << std::endl;
+    auto m = ptraceProf::orderMap::getProcessCount(pid);
+    std::cout << "end dump " << std::endl;
+    auto range_cache = &m[0];
+    while(1) {
+        ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
+        // wait(&status);
+        if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
+            fprintf(stderr, "fail to wait pid :%d\n", pid);
+            break;
+        }
+        long ip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
+        bool in = false;
+        if(ip >= std::get<1>(*range_cache).start && ip <= std::get<1>(*range_cache).end) {
+            in = true;
+            std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start]++;
+        } else {
+            for(auto &tuple : m) {
+                if(ip >=  std::get<1>(tuple).start && ip <= std::get<1>(tuple).end) {
+                    in = true;
+                    range_cache = &tuple;
+                    std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start]++;
+                }
+            }
+        }
+
+        if(!in) {
+            m = ptraceProf::orderMap::getProcessCount(pid);
+            for(auto &tuple : m) {
+                if(ip >=  std::get<1>(tuple).start && ip <= std::get<1>(tuple).end) {
+                    in = true;
+                    range_cache = &tuple;
+                    std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start]++;
+                }
+            }
+            if(!in) {
+                std::cerr << "meet error rip " << ip << " in no file " << std::endl;
+                exit(1);
+            }
+        }
+    }
+}
+
 int main() {
     int child = fork();
     if(child == 0) {
+        ptrace(PTRACE_TRACEME, 0, 0, 0);
         execl("/bin/ls", "ls");
         // execl("./a.out", "out");
     } else {
-        some_time_trace(child);
+        // some_time_trace(child);
+        dump_and_trace(child);
     }
 }

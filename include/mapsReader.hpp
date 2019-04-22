@@ -32,8 +32,12 @@ inline constexpr auto get_file_name_from_pid() {
 inline static auto get_mem_map_from_line(const std::string &line) {
     unsigned long long start, end, offset;
     char file_name[255] = "\0";
-    sscanf(line.c_str(), "%llx-%llx %*s %llx %*d:%*d %*d %s", &start, &end, &offset, file_name);
-    return std::make_pair(mem_range{start, end, offset}, std::string(file_name));
+    int put = sscanf(line.c_str(), "%llx-%llx %*s %llx %*d:%*d %*d %s", &start, &end, &offset, file_name);
+    if(put > 2) {
+        return std::make_pair(mem_range{start, end, offset}, std::string(file_name));
+    } else {
+        return std::make_pair(mem_range{0, 0, 0}, std::string(file_name));
+    }
 }
 
 auto readMaps(std::istream &&fs) {
@@ -42,8 +46,8 @@ auto readMaps(std::istream &&fs) {
         std::string line;
         std::getline(fs, line);
         auto [map, file] = get_mem_map_from_line(line);
-        if(file.size()) {
-            result[file].push_back(map);
+        if(map.start != 0) {
+        result[file].push_back(map);
         }
     }
     return result;
