@@ -11,6 +11,9 @@
 namespace ptraceProf {
 namespace orderMap {
 
+using ptraceProf::mapsReader::mem_range;
+using result_t = std::vector < std::tuple<std::string, mem_range, std::vector<unsigned long long> > >;
+
 inline bool file_exist(const std::string &path) {
     // TODO change to c++17 filesystem if c++17 enabled
     return !path.empty() && path[0] == '/' // fast check
@@ -18,9 +21,9 @@ inline bool file_exist(const std::string &path) {
 }
 
 unsigned int get_address(
-    const std::vector<ptraceProf::mapsReader::mem_range> &range,
+    const std::vector<mem_range> &range,
     const unsigned int addre) {
-    for(auto r : range) {
+    for(const auto &r : range) {
         if(addre > r.offset && addre < r.end - r.start + r.offset) {
             return r.start + addre - r.offset;
         }
@@ -31,41 +34,44 @@ unsigned int get_address(
     return 0;
 }
 
-auto getProcessMap(const int pid) {
-    using ptraceProf::mapsReader::readMaps;
-    using ptraceProf::mapsReader::mem_range;
-    using ptraceProf::dumpReader::read_objdump;
-    auto address_map = readMaps(pid);
-    std::unordered_map <unsigned int, std::tuple< std::vector<unsigned short>, std::string > > result;
-    for(const std::pair<std::string, std::vector<mem_range> > &add_map : address_map) {
-        if(file_exist(add_map.first)) {
-            std::unordered_map < unsigned int, std::tuple <
-            std::vector<unsigned short>,
-                std::string > > dump =
-                    read_objdump(get_cmd_stream({"/usr/bin/objdump", "-d", add_map.first}));
-            for(auto dump_item : dump) {
-                result[get_address(add_map.second, dump_item.first)] = dump_item.second;
-            }
+bool has_maped(const std::pair<std::string, std::vector<mem_range> > &file,
+               const result_t &count) {
+    if (!file_exist(file.first)){
+        return false;
+    }
+    for(const auto &c : count) {
+        if(std::get<0>(c) == file.first) {
+            return true;
         }
     }
-    return result;
+    return false;
+}
+
+bool no_repeat_map(const std::pair<std::string, std::vector<mem_range> > &file,
+                   result_t &count) {
+    if(!has_maped(file, count)) {
+        for(const auto &range : file.second) {
+            count.push_back(std::make_tuple(
+                                file.first,
+                                range,
+                                std::vector<unsigned long long>(range.end - range.start, 0)));
+        }
+    }
+}
+
+void getProcessCount(const int pid,
+                     result_t &count) {
+    using ptraceProf::mapsReader::readMaps;
+    using ptraceProf::mapsReader::mem_range;
+    auto address_map = readMaps(pid);
+    for(const auto &add_map : address_map) {
+        no_repeat_map(add_map, count);
+    }
 }
 
 auto getProcessCount(const int pid) {
-    using ptraceProf::mapsReader::readMaps;
-    using ptraceProf::mapsReader::mem_range;
-    auto address_map = readMaps(pid);
-    std::vector < std::tuple<std::string, mem_range, std::vector<unsigned long long> > > count;
-    for(const std::pair<std::string, std::vector<mem_range> > &add_map : address_map) {
-        if(file_exist(add_map.first)) {
-            for(auto range : add_map.second) {
-                count.push_back(std::make_tuple(
-                                    add_map.first,
-                                    range,
-                                    std::vector<unsigned long long>(range.end - range.start, 0)));
-            }
-        }
-    }
+    result_t count;
+    getProcessCount(pid, count);
     return count;
 }
 
