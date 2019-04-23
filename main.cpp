@@ -84,7 +84,13 @@ void dump_and_trace(const int pid) {
         ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
         // wait(&status);
         if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-            fprintf(stderr, "fail to wait pid :%d\n", pid);
+            if (kill(pid,0)){
+                // process not run
+                // https://stackoverflow.com/questions/11785936/how-to-find-if-a-process-is-running-in-c
+                break;
+            }
+            fprintf(stderr, "fail to wait pid :%d process may exited\n", pid);
+            fprintf(stderr, "the tracer process will continue\n");
             break;
         }
         long ip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
@@ -103,7 +109,7 @@ void dump_and_trace(const int pid) {
         }
 
         if(!in) {
-            m = ptraceProf::orderMap::getProcessCount(pid);
+            ptraceProf::orderMap::getProcessCount(pid,m);
             for(auto &tuple : m) {
                 if(ip >=  std::get<1>(tuple).start && ip <= std::get<1>(tuple).end) {
                     in = true;
@@ -117,6 +123,7 @@ void dump_and_trace(const int pid) {
             }
         }
     }
+    return m;
 }
 
 int main() {
