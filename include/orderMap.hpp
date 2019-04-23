@@ -37,7 +37,7 @@ unsigned int get_address(
 bool has_maped(const std::pair<std::string, std::vector<mem_range> > &file,
                const result_t &count) {
     if (!file_exist(file.first)){
-        return false;
+        return true;
     }
     for(const auto &c : count) {
         if(std::get<0>(c) == file.first) {
