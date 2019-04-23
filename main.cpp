@@ -70,21 +70,19 @@ void some_time_trace(const int pid) {
     }
 }
 
-void dump_and_trace(const int pid) {
+auto dump_and_trace(const int pid) {
     int status = -1;
     wait(&status);
     if(WIFEXITED(status)) { //子进程发送退出信号，退出循环
-        return;
+        return ::ptraceProf::orderMap::result_t();
     }
-    std::cout << "start dump " << std::endl;
     auto m = ptraceProf::orderMap::getProcessCount(pid);
-    std::cout << "end dump " << std::endl;
     auto range_cache = &m[0];
     while(1) {
         ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
         // wait(&status);
         if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-            if (kill(pid,0)){
+            if(kill(pid, 0)) {
                 // process not run
                 // https://stackoverflow.com/questions/11785936/how-to-find-if-a-process-is-running-in-c
                 break;
@@ -107,9 +105,8 @@ void dump_and_trace(const int pid) {
                 }
             }
         }
-
         if(!in) {
-            ptraceProf::orderMap::getProcessCount(pid,m);
+            ptraceProf::orderMap::getProcessCount(pid, m);
             for(auto &tuple : m) {
                 if(ip >=  std::get<1>(tuple).start && ip <= std::get<1>(tuple).end) {
                     in = true;
@@ -126,6 +123,26 @@ void dump_and_trace(const int pid) {
     return m;
 }
 
+auto analize_trace(const ::ptraceProf::orderMap::result_t &result) {
+    auto &cout = std::cerr;
+    cout << "start analize" << std::endl;
+    using std::endl;
+    std::string last_file = "";
+    for(const auto &item : result) {
+        if(last_file != std::get<0>(item)) {
+            last_file = std::get<0>(item);
+            cout << last_file << " :\n";
+        }
+        auto start = std::get<1>(item).start;
+        const auto &li = std::get<2>(item);
+        for(auto i = 0; i < li.size(); ++i) {
+            if(li.at(i) != 0) {
+                cout << std::hex << i << "\t: " << std::dec << li.at(i) << '\n';
+            }
+        }
+    }
+}
+
 int main() {
     int child = fork();
     if(child == 0) {
@@ -134,6 +151,6 @@ int main() {
         // execl("./a.out", "out");
     } else {
         // some_time_trace(child);
-        dump_and_trace(child);
+        analize_trace(dump_and_trace(child));
     }
 }
