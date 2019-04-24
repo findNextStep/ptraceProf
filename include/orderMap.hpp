@@ -7,12 +7,14 @@
 #include <unistd.h> // access
 #include <string>
 #include <fstream>
+#include <map>
 
 namespace ptraceProf {
 namespace orderMap {
 
 using ptraceProf::mapsReader::mem_range;
-using result_t = std::vector < std::tuple<std::string, mem_range, std::vector<unsigned long long> > >;
+// using result_t = std::vector < std::tuple<std::string, mem_range, std::vector<unsigned long long> > >;
+using result_t = std::vector < std::tuple<std::string, mem_range, std::vector<std::map<unsigned long long ,unsigned int> > > >;
 
 inline bool file_exist(const std::string &path) {
     // TODO change to c++17 filesystem if c++17 enabled
@@ -54,7 +56,7 @@ bool no_repeat_map(const std::pair<std::string, std::vector<mem_range> > &file,
             count.push_back(std::make_tuple(
                                 file.first,
                                 range,
-                                std::vector<unsigned long long>(range.end - range.start, 0)));
+                                std::vector<std::map<unsigned long long ,unsigned int> >(range.end - range.start)));
         }
     }
 }

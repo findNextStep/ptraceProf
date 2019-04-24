@@ -78,6 +78,19 @@ auto dump_and_trace(const int pid) {
     }
     auto m = ptraceProf::orderMap::getProcessCount(pid);
     auto range_cache = &m[0];
+    ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
+    // wait(&status);
+    if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
+        if(kill(pid, 0)) {
+            // process not run
+            // https://stackoverflow.com/questions/11785936/how-to-find-if-a-process-is-running-in-c
+            return m;
+        }
+        fprintf(stderr, "fail to wait pid :%d process may exited\n", pid);
+        fprintf(stderr, "the tracer process will continue\n");
+        return m;
+    }
+    long last_command = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
     while(1) {
         ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
         // wait(&status);
@@ -95,13 +108,15 @@ auto dump_and_trace(const int pid) {
         bool in = false;
         if(ip >= std::get<1>(*range_cache).start && ip <= std::get<1>(*range_cache).end) {
             in = true;
-            std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start]++;
+            std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start][last_command]++;
+            last_command = ip;
         } else {
             for(auto &tuple : m) {
                 if(ip >=  std::get<1>(tuple).start && ip <= std::get<1>(tuple).end) {
                     in = true;
                     range_cache = &tuple;
-                    std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start]++;
+                    std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start][last_command]++;
+                    last_command = ip;
                 }
             }
         }
@@ -111,7 +126,8 @@ auto dump_and_trace(const int pid) {
                 if(ip >=  std::get<1>(tuple).start && ip <= std::get<1>(tuple).end) {
                     in = true;
                     range_cache = &tuple;
-                    std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start]++;
+                    std::get<2>(*range_cache)[ip - std::get<1>(*range_cache).start][last_command]++;
+                    last_command = ip;
                 }
             }
             if(!in) {
@@ -136,8 +152,8 @@ auto analize_trace(const ::ptraceProf::orderMap::result_t &result) {
         auto start = std::get<1>(item).start;
         const auto &li = std::get<2>(item);
         for(auto i = 0; i < li.size(); ++i) {
-            if(li.at(i) != 0) {
-                cout << std::hex << i << "\t: " << std::dec << li.at(i) << '\n';
+            for (auto jmp : li[i]){
+                cout << std::hex << i << " --> " << jmp.first << " : " << std::dec << jmp.second << endl;
             }
         }
     }
@@ -147,8 +163,8 @@ int main() {
     int child = fork();
     if(child == 0) {
         ptrace(PTRACE_TRACEME, 0, 0, 0);
-        execl("/bin/ls", "ls");
-        // execl("./a.out", "out");
+        // execl("/bin/ls", "ls");
+        execl("./a.out", "out");
     } else {
         // some_time_trace(child);
         analize_trace(dump_and_trace(child));
