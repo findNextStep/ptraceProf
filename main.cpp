@@ -13,6 +13,7 @@
 #include <sstream>
 
 #include "orderMap.hpp"
+#include "processTrace.hpp"
 
 bool process_pause(const int pid) {
     if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
@@ -167,6 +168,9 @@ int main() {
         execl("./a.out", "out");
     } else {
         // some_time_trace(child);
-        analize_trace(dump_and_trace(child));
+        // analize_trace(dump_and_trace(child));
+        ::ptraceProf::processProf pp(child);
+        pp.trace(child);
+        analize_trace(pp.ans[0]);
     }
 }
