@@ -19,6 +19,8 @@ struct mem_map {
     std::string file_name;
 };
 
+using result_t = std::map<std::string, std::vector<mem_range> >;
+
 inline static std::string get_file_name_from_pid(int pid) {
     char file_name[255];
     sprintf(file_name, "/proc/%d/maps", pid);
@@ -41,13 +43,13 @@ inline static auto get_mem_map_from_line(const std::string &line) {
 }
 
 auto readMaps(std::istream &&fs) {
-    std::map<std::string, std::vector<mem_range>> result;
+    result_t result;
     while(!fs.eof()) {
         std::string line;
         std::getline(fs, line);
         auto [map, file] = get_mem_map_from_line(line);
         if(map.start != 0) {
-        result[file].push_back(map);
+            result[file].push_back(map);
         }
     }
     return result;
