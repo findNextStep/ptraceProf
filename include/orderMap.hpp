@@ -59,16 +59,22 @@ bool no_repeat_map(const std::pair<std::string, std::vector<mem_range> > &file,
                                 std::vector<std::map<unsigned long long ,unsigned int> >(range.end - range.start)));
         }
     }
+    return true;
 }
 
 void getProcessCount(const int pid,
-                     result_t &count) {
-    using ptraceProf::mapsReader::readMaps;
-    using ptraceProf::mapsReader::mem_range;
-    auto address_map = readMaps(pid);
+                    const ::ptraceProf::mapsReader::result_t&address_map,
+                    result_t &count){
     for(const auto &add_map : address_map) {
         no_repeat_map(add_map, count);
     }
+}
+
+void getProcessCount(const int pid,
+                    result_t &count) {
+    using ptraceProf::mapsReader::readMaps;
+    auto address_map = readMaps(pid);
+    return getProcessCount(pid,address_map,count);
 }
 
 auto getProcessCount(const int pid) {
