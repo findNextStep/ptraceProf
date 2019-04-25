@@ -4,9 +4,12 @@
 #include <map>
 #include <sys/types.h> // pid_t
 #include <sys/reg.h> // RIP
+#include <sys/wait.h>
 #include <sys/ptrace.h>
+#include <signal.h>
 #include <dirent.h> // opendir
 #include <unistd.h>
+#include <stdio.h>
 
 namespace ptraceProf {
 
@@ -16,13 +19,18 @@ public:
     using maps = ::ptraceProf::mapsReader::result_t;
     using orders = ::ptraceProf::orderMap::result_t;
     using mem_range = ::ptraceProf::mapsReader::mem_range;
-    using ip_t = long;
+
+    // using result_t = std::vector < std::tuple<
+    // std::string, mem_range,
+    // std::vector<std::map<unsigned long long ,unsigned int> >
+    // > >;
+    using ip_t = unsigned long long;
 
     std::vector<orders> ans;
     maps file_map;
 
     std::map<pid_t, orders> pid_order;
-    std::map<pid_t, pid_t> lastcommand;
+    std::map<pid_t, ip_t> lastcommand;
     std::map<pid_t, orders::iterator> range_cache;
 public:
     processProf(const pid_t pid) {}
@@ -129,7 +137,7 @@ public:
         if(!this->singleblock(pid)) {
             return false;
         } else {
-            auto ip = get_ip(pid);
+            const auto ip = get_ip(pid);
             if(range_cache[pid] == this->pid_order[pid].end() || !in_range(ip, std::get<1>(*range_cache[pid]))) {
                 // no hit cache
                 auto it = find_range(pid, ip);
