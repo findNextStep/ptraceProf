@@ -32,8 +32,6 @@ private:
     std::map<pid_t, ip_t> lastcommand;
     std::map<pid_t, orders::iterator> range_cache;
 public:
-    processProf(const pid_t pid) {}
-
     void stop_trace(const pid_t pid) {
         pid_order.erase(pid);
         lastcommand.erase(pid);
@@ -93,6 +91,7 @@ public:
     }
 
     void procsss_start(const int pid) {
+        lastcommand[pid] = 0;
         if(ptrace(PTRACE_DETACH, pid, 0, 0)) {
             fprintf(stderr, "fail to detach pid :%d\n", pid);
             check_process(pid);
