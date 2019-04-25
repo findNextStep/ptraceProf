@@ -102,8 +102,8 @@ auto analize_trace(const ::ptraceProf::processProf &pp) {
     cout << "start analize" << std::endl;
     using std::endl;
     for(auto item : pp.get_ans()) {
-        auto it_start = find_it(pp.file_map, item.first.first);
-        auto it_end = find_it(pp.file_map, item.first.second);
+        auto it_start = find_it(pp.get_file_map(), item.first.first);
+        auto it_end = find_it(pp.get_file_map(), item.first.second);
         // fprintf (stderr,"%lx --%d--> %lx\n",item.first.first,item.second,item.first.second);
         cout << std::hex << item.first.first - it_start.second.start + it_start.second.offset << " " << it_start.first << "--"
              << std::dec << item.second << "--"

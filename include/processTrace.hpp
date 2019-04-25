@@ -15,7 +15,6 @@ namespace ptraceProf {
 
 class processProf {
 private:
-public:
     using maps = ::ptraceProf::mapsReader::result_t;
     using orders = ::ptraceProf::orderMap::result_t;
     using mem_range = ::ptraceProf::mapsReader::mem_range;
@@ -172,15 +171,19 @@ public:
         std::map<std::pair<ip_t, ip_t>, unsigned int> result;
         for(const auto &order_result : ans) {
             for(const auto&[filename, mem_range, start_count] : order_result) {
-                for (unsigned int i = 0;i<start_count.size();++i){
-                    for (auto [start_ip,times]:start_count[i]){
+                for(unsigned int i = 0; i < start_count.size(); ++i) {
+                    for(auto [start_ip, times] : start_count[i]) {
                         const ip_t end_ip = i + mem_range.start;
-                        result[std::make_pair(start_ip,end_ip)] += times;
+                        result[std::make_pair(start_ip, end_ip)] += times;
                     }
                 }
             }
         }
         return result;
+    }
+
+    const auto &get_file_map()const {
+        return this->file_map;
     }
 };
 
