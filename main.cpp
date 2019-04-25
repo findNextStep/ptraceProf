@@ -1,75 +1,6 @@
 #include <iostream>
-#include <sys/ptrace.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-#include <sys/reg.h>
-#include <sys/user.h>
-#include <stdio.h>
-#include <chrono>
-#include <thread>
-#include <vector>
-#include <dirent.h> // opendir
-#include <sstream>
-
 #include "orderMap.hpp"
 #include "processTrace.hpp"
-
-bool process_pause(const int pid) {
-    if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
-        fprintf(stderr, "fail to attach pid :%d\n", pid);
-        return false;
-    }
-    int status;
-    if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-        fprintf(stderr, "fail to wait pid :%d\n", pid);
-        return false;
-    }
-    return true;
-}
-
-void procsss_start(const int pid) {
-    if(ptrace(PTRACE_DETACH, pid, 0, 0)) {
-        fprintf(stderr, "fail to detach pid :%d\n", pid);
-    }
-}
-
-static std::vector<pid_t> ListThreads(pid_t pid) {
-    std::vector<pid_t> result;
-    std::stringstream dirname;
-    dirname << "/proc/" << pid << "/task";
-    auto *dir = opendir(dirname.str().c_str());
-    if(dir == nullptr) {
-        // fail
-        return {};
-    }
-    dirent *entry;
-    while((entry = readdir(dir)) != nullptr) {
-        std::string name = entry->d_name;
-        if(name[0] != '.') {
-            result.push_back(static_cast<pid_t>(std::stoi(name)));
-        }
-    }
-    return result;
-}
-
-void some_time_trace(const int pid) {
-    int status;
-    long orig_eax;
-    while(1) {
-        if(!process_pause(pid)) {
-            return;
-        }
-        ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
-        wait(&status);
-        if(WIFEXITED(status)) { //子进程发送退出信号，退出循环
-            break;
-        }
-        long ip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
-        procsss_start(pid);
-        fprintf(stdout, "ip = %ld \n", ip);
-    }
-}
 
 auto dump_and_trace(const int pid) {
     int status = -1;
@@ -80,11 +11,8 @@ auto dump_and_trace(const int pid) {
     auto m = ptraceProf::orderMap::getProcessCount(pid);
     auto range_cache = &m[0];
     ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
-    // wait(&status);
     if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
         if(kill(pid, 0)) {
-            // process not run
-            // https://stackoverflow.com/questions/11785936/how-to-find-if-a-process-is-running-in-c
             return m;
         }
         fprintf(stderr, "fail to wait pid :%d process may exited\n", pid);
@@ -94,11 +22,8 @@ auto dump_and_trace(const int pid) {
     long last_command = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
     while(1) {
         ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
-        // wait(&status);
         if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
             if(kill(pid, 0)) {
-                // process not run
-                // https://stackoverflow.com/questions/11785936/how-to-find-if-a-process-is-running-in-c
                 break;
             }
             fprintf(stderr, "fail to wait pid :%d process may exited\n", pid);
@@ -153,10 +78,36 @@ auto analize_trace(const ::ptraceProf::orderMap::result_t &result) {
         auto start = std::get<1>(item).start;
         const auto &li = std::get<2>(item);
         for(auto i = 0; i < li.size(); ++i) {
-            for (auto jmp : li[i]){
+            for(auto jmp : li[i]) {
                 cout << std::hex << i << " --> " << jmp.first << " : " << std::dec << jmp.second << endl;
             }
         }
+    }
+}
+
+auto find_it(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long long ip) {
+    for(const auto &item : file_map) {
+        for(const auto range : item.second) {
+            if(::ptraceProf::processProf::in_range(ip, range)) {
+                return std::make_pair(item.first, range);
+            }
+        }
+    }
+    std::cerr << "errror " << std::endl;
+    exit(1);
+}
+
+auto analize_trace(const ::ptraceProf::processProf &pp) {
+    auto &cout = std::cerr;
+    cout << "start analize" << std::endl;
+    using std::endl;
+    for(auto item : pp.get_ans()) {
+        auto it_start = find_it(pp.file_map, item.first.first);
+        auto it_end = find_it(pp.file_map, item.first.second);
+        // fprintf (stderr,"%lx --%d--> %lx\n",item.first.first,item.second,item.first.second);
+        cout << std::hex << item.first.first - it_start.second.start + it_start.second.offset << " " << it_start.first << "--"
+             << std::dec << item.second << "--"
+             << std::hex << item.first.second - it_end.second.start + it_end.second.offset << " " << it_end.first << "\n";
     }
 }
 
@@ -167,10 +118,11 @@ int main() {
         // execl("/bin/ls", "ls");
         execl("./a.out", "out");
     } else {
+        printf("%d\n", child);
         // some_time_trace(child);
         // analize_trace(dump_and_trace(child));
         ::ptraceProf::processProf pp(child);
         pp.trace(child);
-        analize_trace(pp.ans[0]);
+        analize_trace(pp);
     }
 }
