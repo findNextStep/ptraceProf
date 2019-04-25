@@ -121,7 +121,7 @@ int main() {
         printf("%d\n", child);
         // some_time_trace(child);
         // analize_trace(dump_and_trace(child));
-        ::ptraceProf::processProf pp(child);
+        ::ptraceProf::processProf pp;
         pp.trace(child);
         analize_trace(pp);
     }
