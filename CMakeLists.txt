@@ -3,6 +3,8 @@ project(ptrace_prof)
 
 include_directories(include)
 
+include_directories(third_party/json/single_include)
+
 add_compile_options(-std=c++1z)
 add_compile_options(-g)
 
