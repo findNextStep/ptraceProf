@@ -2,30 +2,64 @@
 #include "pipe.hpp"
 #include <iostream>
 #include <algorithm>
+auto read_n_line(::std::istream &a) {
+    std::string s;
+    int sum = 0;
+    while(a) {
+        std::getline(a, s);
+        sum += s.size();
+    }
+        std::getline(a, s);
+        sum += s.size();
+        std::getline(a, s);
+        sum += s.size();
+        std::getline(a, s);
+        sum += s.size();
+    std::cout << "has line " << sum << std::endl;
+}
+auto read_n_line(::ptraceProf::pipstream &&a) {
+    if(a) {
+        return read_n_line(a);
+    }
+}
+
 int main() {
     using ::ptraceProf::get_cmd_stream;
+    // using ::ptraceProf::get_cmd_stream_;
     using ::ptraceProf::dumpReader::read_objdump;
     using std::cout;
     using std::endl;
-    std::vector< std::pair<unsigned int, std::tuple <
-    std::vector<unsigned short>,
-        std::string > > > result;
+    // read_n_line(get_cmd_stream_({"/bin/echo","echo 233"}));
 
-    for(auto item :
-            read_objdump(get_cmd_stream({"/usr/bin/objdump", "-d", "/bin/ls"}))) {
-        result.push_back(item);
-    }
-
-    std::sort(result.begin(), result.end(), [](auto a, auto b) {
-        return a.first < b.first;
-    });
-
-    for(auto item : result) {
-        cout << std::hex << item.first << "\t: ";
-        auto [order, info] = item.second;
-        for(auto o : order) {
-            cout << o << " ";
-        }
-        cout << '\t' << info << endl;
-    }
+    read_n_line(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libc-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libgcc_s.so.1"));
+    read_n_line(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out"));
+    read_n_line(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libc-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libgcc_s.so.1"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /usr/lib/x86_64-linux-gnu/libstdc++.so.6"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so"));
+    // return 0;
+    cout << "size " <<read_objdump(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out")).size() << endl;
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libc-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libgcc_s.so.1"));
+    read_n_line(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out"));
+    read_n_line(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libc-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libgcc_s.so.1"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /usr/lib/x86_64-linux-gnu/libstdc++.so.6"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so"));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so"));
+    // return 0;
+    cout << read_objdump(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out")).size() << endl;
+    cout << read_objdump(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libc-2.27.so")).size() << endl;
+    cout << read_objdump(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libgcc_s.so.1")).size() << endl;
+    cout << read_objdump(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so")).size() << endl;
+    cout << read_objdump(get_cmd_stream("objdump -d /usr/lib/x86_64-linux-gnu/libstdc++.so.6")).size() << endl;
+    cout << read_objdump(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so")).size() << endl;
+    cout << read_objdump(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so")).size() << endl;
 }
