@@ -1,14 +1,15 @@
 #include <iostream>
 #include "orderMap.hpp"
+#include "readDump.hpp"
 #include "processTrace.hpp"
 #include <nlohmann/json.hpp>
 #include <sstream>
+#include <time.h>
 
-std::string lltoString(long long t)
-{
+std::string lltoString(long long t) {
     std::string result;
     std::stringstream ss;
-    ss <<std::hex << t;
+    ss << std::hex << t;
     ss >> result;
     return result;
 }
@@ -21,14 +22,15 @@ auto _find_it(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long 
             }
         }
     }
-    return std::make_pair(std::string(),::ptraceProf::mapsReader::mem_range());
+    return std::make_pair(std::string(), ::ptraceProf::mapsReader::mem_range());
 }
 
 auto dump_and_trace_sign(const int pid) {
     int status = -1;
     wait(&status);
     auto maps = ::ptraceProf::mapsReader::readMaps(pid);
-    std::map<std::string,std::map<std::string,int> > ans;
+    //{filename:{addre(hex),time}}
+    std::map<std::string, std::map<std::string, int> > ans;
     while(1) {
         ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
         if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
@@ -40,10 +42,10 @@ auto dump_and_trace_sign(const int pid) {
             break;
         }
         long ip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
-        auto item = _find_it(maps,ip);
-        if (item.first == ""){
+        auto item = _find_it(maps, ip);
+        if(item.first == "") {
             maps = ::ptraceProf::mapsReader::readMaps(pid);
-            item = _find_it(maps,ip);
+            item = _find_it(maps, ip);
         }
         ans[item.first][lltoString(ip - item.second.start + item.second.offset)]++;
 
@@ -53,7 +55,6 @@ auto dump_and_trace_sign(const int pid) {
 
 auto analize_trace(const ::ptraceProf::orderMap::result_t &result) {
     auto &cout = std::cerr;
-    cout << "start analize" << std::endl;
     using std::endl;
     std::string last_file = "";
     for(const auto &item : result) {
@@ -85,17 +86,101 @@ auto find_it(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long l
 
 auto analize_trace(const ::ptraceProf::processProf &pp) {
     auto &cout = std::cerr;
-    cout << "start analize" << std::endl;
     using std::endl;
+    // {file : {start_ip : {end_ip,time}}}
+    std::map<std::string, std::map<int, std::map<int, int> > > ans;
     for(auto item : pp.get_ans()) {
         auto it_start = find_it(pp.get_file_map(), item.first.first);
         auto it_end = find_it(pp.get_file_map(), item.first.second);
-        // fprintf (stderr,"%lx --%d--> %lx\n",item.first.first,item.second,item.first.second);
-        cout << std::hex << item.first.first - it_start.second.start + it_start.second.offset << " " << it_start.first << " "
-             << std::hex << item.first.second - it_end.second.start + it_end.second.offset << " " << it_end.first << " "
-             << std::dec << item.second << " "
-             << "\n";
+        if(it_start.first == it_end.first) {
+            ans[it_start.first][item.first.first - it_start.second.start + it_start.second.offset]
+            [item.first.second - it_end.second.start + it_end.second.offset] = item.second;
+        } else {
+            ans[it_start.first][item.first.first - it_start.second.start + it_start.second.offset][-1] +=
+                item.second;
+        }
     }
+    return ans;
+}
+
+bool start_with(const std::string &base, const std::string &head) {
+    for(int i = 0; i < head.size(); ++i) {
+        if(base[i] != head[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+
+bool force_jump(const std::string &info) {
+    if(start_with(info, "call")) {
+        return true;
+    } else if(start_with(info, "jmpq")) {
+        return true;
+    } else if(start_with(info, "retq")) {
+        return true;
+    }
+    return false;
+}
+
+bool may_jump(const std::string &info, const unsigned long long next_addre) {
+    auto add = lltoString(next_addre);
+    return info.find(add) != std::string::npos;
+}
+
+bool add_in_block(const int add, const std::map< unsigned int, std::tuple < std::vector<unsigned short>, std::string > > &result) {
+    return result.find(add) != result.end();
+}
+
+bool no_run(const std::string &info) {
+    return !info.size();
+}
+
+
+auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > &js) {
+    std::map<std::string, std::map<int, std::map<int, int> > > ans = js;
+    std::map<std::string, std::map<std::string, int> > result;
+    for(auto [file, add_pair] : ans) {
+        auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
+        auto block = ::ptraceProf::dumpReader::read_block(obj_s);
+        std::cout << file << std::endl;
+        for(auto [addr, end_time_pair] : add_pair) {
+            while(!add_in_block(addr, block)) {
+                if(!obj_s) {
+                    break;
+                }
+                block = ::ptraceProf::dumpReader::read_block(obj_s);
+            }
+            if(!block.size()) {
+                break;
+            }
+
+            for(auto [end, times] : end_time_pair) {
+                bool start = false;
+                for(auto [addre, _] : block) {
+                    if(!start) {
+                        if(addre == addr) {
+                            start = true;
+                        } else {
+                            continue;
+                        }
+                    }
+                    if(no_run(std::get<1>(_))) {
+                        continue;
+                    }
+                    result[file][lltoString(addre)] += times;
+                    if(force_jump(std::get<1>(_))) {
+                        break;
+                    }
+                    if(end != -1 && may_jump(std::get<1>(_), end)) {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+    return ::nlohmann::json(result);
 }
 
 int main() {
@@ -107,11 +192,12 @@ int main() {
     } else {
         printf("%d\n", child);
         // some_time_trace(child);
-        std::cerr << dump_and_trace_sign(child).dump(4);
-        // ::ptraceProf::processProf pp;
-        // pp.trace(child);
-        // analize_trace(pp);
+        // std::cerr << dump_and_trace_sign(child).dump(4);
+        ::ptraceProf::processProf pp;
+        pp.trace(child);
+        std::cerr << analize(analize_trace(pp)).dump(4);
     }
+    return 0;
 }
 
 
