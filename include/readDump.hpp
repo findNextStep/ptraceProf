@@ -2,6 +2,7 @@
 
 #include "pipe.hpp"
 #include <unordered_map>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -9,6 +10,8 @@
 
 namespace ptraceProf {
 namespace dumpReader {
+
+using pipstream = std::stringstream;
 
 auto get_order(std::istream &&ss) {
     short i;
@@ -43,7 +46,7 @@ auto deal_line_order(const std::string &line) {
 }
 
 auto try_read_header(const std::string &line) {
-    char name[100];
+    char name[1000];
     unsigned int addr = -1;
     if(sscanf(line.c_str(), "%x <%s>:", &addr, name) == 2) {
         return std::string(name);
@@ -52,16 +55,18 @@ auto try_read_header(const std::string &line) {
     }
 }
 
-auto read_block(std::istream &is) {
+auto read_block(pipstream &is) {
     std::string line;
     std::getline(is, line);
     std::string func_name = try_read_header(line);
-    std::unordered_map < unsigned int, std::tuple <
+    std::map< unsigned int, std::tuple <
     std::vector<unsigned short>,
         std::string > > result;
     while(func_name.size()) {
         std::string line;
-        std::getline(is, line);
+        if(!std::getline(is, line)){
+            break;
+        }
         auto order = deal_line_order(line);
         if(order.address == -1) {
             break;
@@ -71,11 +76,11 @@ auto read_block(std::istream &is) {
     return result;
 }
 
-auto read_objdump(std::istream &is) {
-    std::unordered_map < unsigned int, std::tuple <
-    std::vector<unsigned short>,
+auto read_objdump(pipstream &is) {
+    std::map< unsigned int, std::tuple <
+        std::vector<unsigned short>,
         std::string > > result;
-    while(!is.eof()) {
+    while(is) {
         auto block = read_block(is);
         for(const auto &item : block) {
             result.emplace(item);
@@ -83,17 +88,8 @@ auto read_objdump(std::istream &is) {
     }
     return result;
 }
-auto read_objdump(std::istream &&is) {
-    std::unordered_map < unsigned int, std::tuple <
-    std::vector<unsigned short>,
-        std::string > > result;
-    while(!is.eof()) {
-        auto block = read_block(is);
-        for(const auto &item : block) {
-            result.emplace(item);
-        }
-    }
-    return result;
+auto read_objdump(pipstream &&is) {
+    return read_objdump(is);
 }
 
 } // DumpReader
