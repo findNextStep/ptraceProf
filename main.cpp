@@ -114,11 +114,16 @@ bool start_with(const std::string &base, const std::string &head) {
 
 
 bool force_jump(const std::string &info) {
+    if (start_with("bnd",info)){
+        return force_jump(info.substr(4));
+    }
     if(start_with(info, "call")) {
         return true;
     } else if(start_with(info, "jmpq")) {
         return true;
-    } else if(start_with(info, "retq")) {
+    } else if(start_with(info, "retq") || start_with(info, "repz")) {
+        return true;
+    } else if(start_with(info, "syscall")) {
         return true;
     }
     return false;
@@ -138,10 +143,12 @@ bool no_run(const std::string &info) {
 }
 
 
-auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > &js) {
-    std::map<std::string, std::map<int, std::map<int, int> > > ans = js;
-    std::map<std::string, std::map<std::string, int> > result;
+auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > ans,std::map<std::string, std::map<std::string, int> > result = {}) {
+    // std::map<std::string, std::map<int, std::map<int, int> > > ans = js;
     for(auto [file, add_pair] : ans) {
+        if(file == "/home/pxq/final_design/ptrace_prof/a.out") {
+            continue;
+        }
         auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
         auto block = ::ptraceProf::dumpReader::read_block(obj_s);
         std::cout << file << std::endl;
