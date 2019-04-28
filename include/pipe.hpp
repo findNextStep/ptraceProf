@@ -8,6 +8,13 @@
 #include <stdlib.h>
 #include <vector>
 #include <math.h>
+#include <cstdio>
+#include <iostream>
+#include <memory>
+#include <stdexcept>
+#include <string>
+#include <array>
+#include <sstream>
 
 namespace ptraceProf {
 
@@ -19,39 +26,22 @@ public:
         unlink(pip_name.c_str());
     }
 };
+auto exec(const char* cmd) {
+    std::array<char, 128> buffer;
+    std::string result;
+    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) {
+        throw std::runtime_error("popen() failed!");
+    }
+    while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+        result += buffer.data();
+    }
+    return std::stringstream(result);
+}
 
-auto get_cmd_stream(char *const *cmd) {
-    const std::string pipe_name = "/tmp/ptrace" + std::to_string(rand());
-    std::cout << mkfifo(pipe_name.c_str(), 0666) << '\n';
-    int pid = fork();
-    if(pid < 0) {
-        std::cerr << "fork error" << std::endl;
-        exit(1);
-    }
-    if(pid > 0) {
-        return pipstream(pipe_name);
-    } else {
-        // fprintf(stdout,"file %s\n",pipe_name.c_str());
-        if (freopen(pipe_name.c_str(), "w", stdout) == NULL){
-            fprintf(stderr,"open pipe fail\n");
-        }
-        if(execv(cmd[0], cmd)){
-            fprintf(stderr,"return is not 0\n");
-        }
-        fclose(stdout);
-        unlink(pipe_name.c_str());
-        exit(0);
-    }
-}
-auto get_cmd_stream(std::vector<std::string> &&cmd) {
-    std::vector<char *> mid;
-    for(auto &m : cmd) {
-        mid.push_back(m.data());
-    }
-    return get_cmd_stream(mid.data());
-}
-auto get_cmd_stream(const std::string &&cmd) {
-    return get_cmd_stream({"/bin/sh", "-c", cmd});
+
+auto get_cmd_stream(const std::string &&cmd,bool pip = true) {
+    return exec(cmd.c_str());
 }
 
 }
