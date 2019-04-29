@@ -5,6 +5,7 @@
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <time.h>
+#include <sys/user.h>
 
 std::string lltoString(long long t) {
     std::string result;
@@ -49,6 +50,9 @@ auto dump_and_trace_sign(const int pid) {
         }
         ans[item.first][lltoString(ip - item.second.start + item.second.offset)]++;
 
+        // struct user_regs_struct regs;
+        // ptrace(PTRACE_GETREGS,pid,nullptr,&regs);
+        // std::cout << lltoString(ip - item.second.start + item.second.offset) << '\t' << item.first << std::endl;
     }
     return nlohmann::json(ans);
 }
@@ -112,7 +116,6 @@ bool start_with(const std::string &base, const std::string &head) {
     return true;
 }
 
-
 bool force_jump(const std::string &info) {
     if (start_with("bnd",info)){
         return force_jump(info.substr(4));
@@ -146,9 +149,6 @@ bool no_run(const std::string &info) {
 auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > ans,std::map<std::string, std::map<std::string, int> > result = {}) {
     // std::map<std::string, std::map<int, std::map<int, int> > > ans = js;
     for(auto [file, add_pair] : ans) {
-        if(file == "/home/pxq/final_design/ptrace_prof/a.out") {
-            continue;
-        }
         auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
         auto block = ::ptraceProf::dumpReader::read_block(obj_s);
         std::cout << file << std::endl;
@@ -186,6 +186,7 @@ auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > an
                 }
             }
         }
+        break;
     }
     return ::nlohmann::json(result);
 }
@@ -199,10 +200,10 @@ int main() {
     } else {
         printf("%d\n", child);
         // some_time_trace(child);
-        // std::cerr << dump_and_trace_sign(child).dump(4);
+        // std::cerr << dump_and_trace_sign(child)["/home/pxq/final_design/ptrace_prof/a.out"].dump(4);
         ::ptraceProf::processProf pp;
         pp.trace(child);
-        std::cerr << analize(analize_trace(pp)).dump(4);
+        std::cerr << analize(analize_trace(pp),pp.get_direct_count())["/home/pxq/final_design/ptrace_prof/a.out"].dump(4);
     }
     return 0;
 }
