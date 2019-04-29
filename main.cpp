@@ -52,7 +52,7 @@ auto dump_and_trace_sign(const int pid) {
 
         // struct user_regs_struct regs;
         // ptrace(PTRACE_GETREGS,pid,nullptr,&regs);
-        // std::cout << lltoString(ip - item.second.start + item.second.offset) << '\t' << item.first << std::endl;
+        // std::cerr << lltoString(ip - item.second.start + item.second.offset) << '\t' << item.first << '\n';
     }
     return nlohmann::json(ans);
 }
@@ -93,15 +93,14 @@ auto analize_trace(const ::ptraceProf::processProf &pp) {
     using std::endl;
     // {file : {start_ip : {end_ip,time}}}
     std::map<std::string, std::map<int, std::map<int, int> > > ans;
-    for(auto item : pp.get_ans()) {
-        auto it_start = find_it(pp.get_file_map(), item.first.first);
-        auto it_end = find_it(pp.get_file_map(), item.first.second);
-        if(it_start.first == it_end.first) {
-            ans[it_start.first][item.first.first - it_start.second.start + it_start.second.offset]
-            [item.first.second - it_end.second.start + it_end.second.offset] = item.second;
-        } else {
-            ans[it_start.first][item.first.first - it_start.second.start + it_start.second.offset][-1] +=
-                item.second;
+    for(const auto [ip_pair,times] : pp.get_ans()) {
+        const auto [start_ip,end_ip] = ip_pair;
+        const auto [start_file,start_offset] = pp.get_offset_and_file_by_ip(start_ip);
+        const auto [end_file,end_offset] = pp.get_offset_and_file_by_ip(end_ip);
+        if (start_file == end_file){
+            ans[start_file][start_ip][end_ip] += times;
+        }else{
+            ans[start_file][start_ip][-1] += times;
         }
     }
     return ans;
@@ -117,19 +116,7 @@ bool start_with(const std::string &base, const std::string &head) {
 }
 
 bool force_jump(const std::string &info) {
-    if (start_with("bnd",info)){
-        return force_jump(info.substr(4));
-    }
-    if(start_with(info, "call")) {
-        return true;
-    } else if(start_with(info, "jmpq")) {
-        return true;
-    } else if(start_with(info, "retq") || start_with(info, "repz")) {
-        return true;
-    } else if(start_with(info, "syscall")) {
-        return true;
-    }
-    return false;
+    return ::ptraceProf::processProf::force_jump(info) != 0;
 }
 
 bool may_jump(const std::string &info, const unsigned long long next_addre) {
@@ -146,7 +133,8 @@ bool no_run(const std::string &info) {
 }
 
 
-auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > ans,std::map<std::string, std::map<std::string, int> > result = {}) {
+auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > ans,
+std::map<std::string, std::map<std::string, int> > result = {}) {
     // std::map<std::string, std::map<int, std::map<int, int> > > ans = js;
     for(auto [file, add_pair] : ans) {
         auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
@@ -186,7 +174,6 @@ auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > an
                 }
             }
         }
-        break;
     }
     return ::nlohmann::json(result);
 }
@@ -200,10 +187,11 @@ int main() {
     } else {
         printf("%d\n", child);
         // some_time_trace(child);
-        // std::cerr << dump_and_trace_sign(child)["/home/pxq/final_design/ptrace_prof/a.out"].dump(4);
+        std::cerr << dump_and_trace_sign(child).dump(4);
+        return 0;
         ::ptraceProf::processProf pp;
         pp.trace(child);
-        std::cerr << analize(analize_trace(pp),pp.get_direct_count())["/home/pxq/final_design/ptrace_prof/a.out"].dump(4);
+        std::cerr << analize(analize_trace(pp), pp.get_direct_count()).dump(4);
     }
     return 0;
 }

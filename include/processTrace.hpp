@@ -64,8 +64,11 @@ public:
                 }
                 int adder = -1;
                 std::stringstream ss(info.substr(7));
-                ss >> std::hex >> adder;
-                return adder;
+                if(ss >> std::hex >> adder) {
+                    return adder;
+                } else {
+                    return -1;
+                }
             }
         }
         return 0;
@@ -78,7 +81,7 @@ public:
         if(start_with(info, "bnd ")) {
             return may_jump(info.substr(4));
         }
-        std::vector<std::string> may_jump_list = {
+        const std::vector<std::string> may_jump_list = {
             "jo", "jno", "jc", "jnc", "jz", "je", "jnz", "jne", "js", "jns",
             "jp", "jpe", "jnp", "jpo", "jb", "jnae", "jnb", "jae", "jbe", "jna",
             "jnbe", "ja", "jl", "jnge", "jnl", "jge", "jle", "jng", "jnle", "jg"
@@ -86,10 +89,11 @@ public:
         if(info[0] != 'j') {
             return 0;
         }
-        for(auto front : may_jump_list) {
+        for(const std::string &front : may_jump_list) {
             if(start_with(info, front)) {
                 std::stringstream ss(info.substr(front.size() + 1));
-                unsigned int addr;
+                std::string s = ss.str();
+                unsigned int addr = 0;
                 ss >> std::hex >> addr;
                 return addr;
             }
@@ -114,38 +118,35 @@ public:
                                       std::vector<unsigned short>,
                                       std::string > > &block) {
         std::set<unsigned int> ans;
-        if(block.empty()) {
-            return ans;
-        }
-
-        unsigned int block_start = block.begin()->first;
-        // 当前块的路径
-        std::set<unsigned int> has;
-        // 条件跳转的出口
-        std::set<unsigned int> outs;
-
-        for(auto [addre, _] : block) {
-            // std::cout << std::hex << addre << std::endl;
-            auto [__, info] = _;
-            has.insert(addre);
-            unsigned int out = 0;
-            if((out = force_jump(info)) != 0) {
-                if(outs.find(out) != outs.end()) {
-                    // 如果已经有这个寻址点的出口，标记当前队列中所有地址
-                    for(auto point : has) {
-                        ans.insert(point);
+        if(block.size()) {
+            unsigned int block_start = block.begin()->first;
+            // 当前块的路径
+            std::set<unsigned int> has;
+            // 条件跳转的出口
+            std::set<unsigned int> outs;
+            for(auto [addre, _] : block) {
+                // std::cout << std::hex << addre << std::endl;
+                auto [__, info] = _;
+                has.insert(addre);
+                unsigned int out = 0;
+                if((out = force_jump(info)) != 0) {
+                    if(outs.find(out) != outs.end()) {
+                        // 如果已经有这个寻址点的出口，标记当前队列中所有地址
+                        for(auto point : has) {
+                            ans.insert(point);
+                        }
                     }
-                }
-                has.clear();
-                outs.clear();
-            } else if((out = may_jump(info)) != 0) {
-                if(outs.find(out) != outs.end()) {
-                    // 如果已经有这个寻址点的出口，标记当前队列中所有地址
-                    for(auto point : has) {
-                        ans.insert(point);
+                    has.clear();
+                    outs.clear();
+                } else if((out = may_jump(info)) != 0) {
+                    if(outs.find(out) != outs.end()) {
+                        // 如果已经有这个寻址点的出口，标记当前队列中所有地址
+                        for(auto point : has) {
+                            ans.insert(point);
+                        }
+                    } else {
+                        outs.insert(out);
                     }
-                } else {
-                    outs.insert(out);
                 }
             }
         }
@@ -181,7 +182,7 @@ public:
         }
         this->need_singlestep.clear();
         for(auto [file, ranges] : file_map) {
-            if (!::ptraceProf::orderMap::file_exist(file)){
+            if(!::ptraceProf::orderMap::file_exist(file)) {
                 continue;
             }
             auto list = update_singlestep_map(file);
@@ -288,43 +289,54 @@ public:
     bool ptrace_once(const pid_t pid) {
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
+            auto [file, offset] = get_offset_and_file_by_ip(ip);
+            // std::cout <<"noral "<< file << "\t" << lltoString(offset) << std::endl;
+            // else {
+            if(range_cache[pid] == this->pid_order[pid].end() || !in_range(ip, std::get<1>(*range_cache[pid]))) {
+                // no hit cache
+                auto it = find_range(pid, ip);
+                if(it == pid_order[pid].end()) {
+                    // if no found rip in maps reload maps and try again
+                    // TODO 增量式maps读取
+                    this->reflush_map(pid);
+                    it = find_range(pid, ip);
+                    // TODO error detect
+                }
+                range_cache[pid] = it;
+            }
+            if(lastcommand[pid]) {
+                // std::cout << "setin ";
+                // std::tie(file,offset) = get_offset_and_file_by_ip(lastcommand[pid]);
+                // std::cout << file << "\t" << lltoString(offset) << "\tto ";
+                // std::tie(file,offset) = get_offset_and_file_by_ip(ip);
+                // std::cout << file << "\t" << lltoString(offset) << '\n';
+                auto it = range_cache[pid];
+                auto &a = std::get<2>(*it);
+                auto &b = a[ip - std::get<1>(*it).start];
+                b[lastcommand[pid]]++;
+                lastcommand[pid] = ip;
+            } else {
+                lastcommand[pid] = ip;
+            }
             if(this->need_singlestep[ip]) {
                 this->direct_count[ip] += 1;
-                while(this->need_singlestep[ip]) {
+                do {
                     if(this->singlestep(pid)) {
                         ip = get_ip(pid);
+                        std::tie(file, offset) = get_offset_and_file_by_ip(ip);
+                        // std::cout <<"insin "<< file << "\t" << lltoString(offset) << std::endl;
                         this->direct_count[ip] += 1;
                     } else {
                         return false;
                     }
-                }
-                lastcommand[pid] = ip;
+                } while(this->need_singlestep[ip]);
+                lastcommand[pid] = get_ip(pid);
+                // std::tie(file,offset) = get_offset_and_file_by_ip(ip);
+                // std::cout <<"outsi "<< file << "\t" << lltoString(offset) << std::endl;
+                this->direct_count[ip] -= 1;
                 return true;
-            } 
-            // else {
-                if(range_cache[pid] == this->pid_order[pid].end() || !in_range(ip, std::get<1>(*range_cache[pid]))) {
-                    // no hit cache
-                    auto it = find_range(pid, ip);
-                    if(it == pid_order[pid].end()) {
-                        // if no found rip in maps reload maps and try again
-                        // TODO 增量式maps读取
-                        this->reflush_map(pid);
-                        it = find_range(pid, ip);
-                        // TODO error detect
-                    }
-                    range_cache[pid] = it;
-                }
-                if(lastcommand[pid]) {
-                    auto it = range_cache[pid];
-                    auto &a = std::get<2>(*it);
-                    auto &b = a[ip - std::get<1>(*it).start];
-                    b[lastcommand[pid]]++;
-                    lastcommand[pid] = ip;
-                } else {
-                    lastcommand[pid] = ip;
-                }
-                return true;
-            // }
+            }
+            return true;
         }
         return false;
     }
@@ -348,15 +360,22 @@ public:
         }
         return result;
     }
-    auto get_direct_count(std::map<std::string, std::map<std::string, int> > result = {})const {
-        for(auto [ip, times] : this->direct_count) {
-            for(auto [file, ranges] : file_map) {
-                for(auto range : ranges) {
-                    if(in_range(ip, range)) {
-                        result[file][lltoString(ip - range.start + range.offset)] += times;
-                    }
+
+    std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip) const {
+        for(auto [file, ranges] : file_map) {
+            for(auto range : ranges) {
+                if(in_range(ip, range)) {
+                    return std::make_pair(file, (ip - range.start + range.offset));
                 }
             }
+        }
+        return std::make_pair(std::string(), 0);
+    }
+
+    auto get_direct_count(std::map<std::string, std::map<std::string, int> > result = {})const {
+        for(auto [ip, times] : this->direct_count) {
+            auto [file, offset] = get_offset_and_file_by_ip(ip);
+            result[file][lltoString(offset)] += times;
         }
         return result;
     }
