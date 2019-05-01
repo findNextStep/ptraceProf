@@ -27,7 +27,7 @@ private:
     // > >;
     using ip_t = unsigned long long;
 
-    std::vector<orders> ans;
+    std::unordered_map<ip_t, std::unordered_map<ip_t, std::unordered_map<ip_t, long long> > > ans;
     // std::map<std::string, std::vector<mem_range> >
     maps file_map;
 
@@ -205,7 +205,6 @@ public:
             // process not run
             // https://stackoverflow.com/questions/11785936/how-to-find-if-a-process-is-running-in-c
             // process never run ,stop trace and save ans
-            this->ans.push_back(pid_order.at(pid));
             return false;
         }
         // error catch
@@ -290,49 +289,41 @@ public:
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
             auto [file, offset] = get_offset_and_file_by_ip(ip);
-            // std::cout <<"noral "<< file << "\t" << lltoString(offset) << std::endl;
+            std::cerr << "noral " << file << "\t" << lltoString(offset) << '\n';
             // else {
-            if(range_cache[pid] == this->pid_order[pid].end() || !in_range(ip, std::get<1>(*range_cache[pid]))) {
-                // no hit cache
-                auto it = find_range(pid, ip);
-                if(it == pid_order[pid].end()) {
-                    // if no found rip in maps reload maps and try again
-                    // TODO 增量式maps读取
-                    this->reflush_map(pid);
-                    it = find_range(pid, ip);
-                    // TODO error detect
-                }
-                range_cache[pid] = it;
+            // no hit cache
+            auto it = find_range(pid, ip);
+            if(it == pid_order[pid].end()) {
+                // if no found rip in maps reload maps and try again
+                // TODO 增量式maps读取
+                this->reflush_map(pid);
+                it = find_range(pid, ip);
+                // TODO error detect
             }
             if(lastcommand[pid]) {
-                // std::cout << "setin ";
-                // std::tie(file,offset) = get_offset_and_file_by_ip(lastcommand[pid]);
-                // std::cout << file << "\t" << lltoString(offset) << "\tto ";
-                // std::tie(file,offset) = get_offset_and_file_by_ip(ip);
-                // std::cout << file << "\t" << lltoString(offset) << '\n';
-                auto it = range_cache[pid];
-                auto &a = std::get<2>(*it);
-                auto &b = a[ip - std::get<1>(*it).start];
-                b[lastcommand[pid]]++;
-                lastcommand[pid] = ip;
-            } else {
-                lastcommand[pid] = ip;
+                std::cerr << "setin ";
+                std::tie(file, offset) = get_offset_and_file_by_ip(lastcommand[pid]);
+                std::cerr << file << "\t" << lltoString(offset) << "\tto ";
+                std::tie(file, offset) = get_offset_and_file_by_ip(ip);
+                std::cerr << file << "\t" << lltoString(offset) << '\n';
+                this->ans[pid][lastcommand[pid]][ip] ++;
             }
+            lastcommand[pid] = ip;
             if(this->need_singlestep[ip]) {
                 this->direct_count[ip] += 1;
                 do {
                     if(this->singlestep(pid)) {
                         ip = get_ip(pid);
                         std::tie(file, offset) = get_offset_and_file_by_ip(ip);
-                        // std::cout <<"insin "<< file << "\t" << lltoString(offset) << std::endl;
+                        std::cerr << "insin " << file << "\t" << lltoString(offset) << std::endl;
                         this->direct_count[ip] += 1;
                     } else {
                         return false;
                     }
                 } while(this->need_singlestep[ip]);
                 lastcommand[pid] = get_ip(pid);
-                // std::tie(file,offset) = get_offset_and_file_by_ip(ip);
-                // std::cout <<"outsi "<< file << "\t" << lltoString(offset) << std::endl;
+                std::tie(file, offset) = get_offset_and_file_by_ip(ip);
+                std::cerr << "outsi " << file << "\t" << lltoString(offset) << std::endl;
                 this->direct_count[ip] -= 1;
                 return true;
             }
@@ -348,14 +339,12 @@ public:
 
     auto get_ans()const {
         std::map<std::pair<ip_t, ip_t>, unsigned int> result;
-        for(const auto &order_result : ans) {
-            for(const auto&[filename, mem_range, start_count] : order_result) {
-                for(unsigned int i = 0; i < start_count.size(); ++i) {
-                    for(auto [start_ip, times] : start_count[i]) {
-                        const ip_t end_ip = i + mem_range.start;
-                        result[std::make_pair(start_ip, end_ip)] += times;
-                    }
+        for(const auto &[pid, order_result] : ans) {
+            for(const auto[startip, outs] : order_result) {
+                for(const auto[endip, times] : outs) {
+                    result[std::make_pair(startip, endip)] += times;
                 }
+
             }
         }
         return result;

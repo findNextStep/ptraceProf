@@ -15,15 +15,15 @@ std::string lltoString(long long t) {
     return result;
 }
 
-auto _find_it(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long long ip) {
-    for(const auto &item : file_map) {
-        for(const auto range : item.second) {
+std::pair<std::string, unsigned long long> _find_it(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long long ip) {
+    for(const auto &[file, ranges] : file_map) {
+        for(const auto range : ranges) {
             if(::ptraceProf::processProf::in_range(ip, range)) {
-                return std::make_pair(item.first, range);
+                return std::make_pair(file, ip - range.start + range.offset);
             }
         }
     }
-    return std::make_pair(std::string(), ::ptraceProf::mapsReader::mem_range());
+    return std::make_pair(std::string(), 0);
 }
 
 auto dump_and_trace_sign(const int pid) {
@@ -43,16 +43,16 @@ auto dump_and_trace_sign(const int pid) {
             break;
         }
         long ip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
-        auto item = _find_it(maps, ip);
-        if(item.first == "") {
+        auto [file, offset] = _find_it(maps, ip);
+        if(file == "") {
             maps = ::ptraceProf::mapsReader::readMaps(pid);
-            item = _find_it(maps, ip);
+            std::tie(file, offset) = _find_it(maps, ip);
         }
-        ans[item.first][lltoString(ip - item.second.start + item.second.offset)]++;
+        ans[file][lltoString(offset)]++;
 
         // struct user_regs_struct regs;
         // ptrace(PTRACE_GETREGS,pid,nullptr,&regs);
-        // std::cerr << lltoString(ip - item.second.start + item.second.offset) << '\t' << item.first << '\n';
+        std::cerr << lltoString(offset) << '\t' << file << '\n';
     }
     return nlohmann::json(ans);
 }
@@ -93,14 +93,14 @@ auto analize_trace(const ::ptraceProf::processProf &pp) {
     using std::endl;
     // {file : {start_ip : {end_ip,time}}}
     std::map<std::string, std::map<int, std::map<int, int> > > ans;
-    for(const auto [ip_pair,times] : pp.get_ans()) {
-        const auto [start_ip,end_ip] = ip_pair;
-        const auto [start_file,start_offset] = pp.get_offset_and_file_by_ip(start_ip);
-        const auto [end_file,end_offset] = pp.get_offset_and_file_by_ip(end_ip);
-        if (start_file == end_file){
-            ans[start_file][start_ip][end_ip] += times;
-        }else{
-            ans[start_file][start_ip][-1] += times;
+    for(const auto [ip_pair, times] : pp.get_ans()) {
+        const auto [start_ip, end_ip] = ip_pair;
+        const auto [start_file, start_offset] = pp.get_offset_and_file_by_ip(start_ip);
+        const auto [end_file, end_offset] = pp.get_offset_and_file_by_ip(end_ip);
+        if(start_file == end_file) {
+            ans[start_file][start_offset][end_offset] += times;
+        } else {
+            ans[start_file][start_offset][-1] += times;
         }
     }
     return ans;
@@ -133,15 +133,15 @@ bool no_run(const std::string &info) {
 }
 
 
-auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > ans,
+auto analize(const std::map<std::string, std::map<int, std::map<int, int> > >&ans,
 std::map<std::string, std::map<std::string, int> > result = {}) {
     // std::map<std::string, std::map<int, std::map<int, int> > > ans = js;
     for(auto [file, add_pair] : ans) {
         auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
         auto block = ::ptraceProf::dumpReader::read_block(obj_s);
         std::cout << file << std::endl;
-        for(auto [addr, end_time_pair] : add_pair) {
-            while(!add_in_block(addr, block)) {
+        for(auto [start_offset, end_time_pair] : add_pair) {
+            while(!add_in_block(start_offset, block)) {
                 if(!obj_s) {
                     break;
                 }
@@ -151,11 +151,11 @@ std::map<std::string, std::map<std::string, int> > result = {}) {
                 break;
             }
 
-            for(auto [end, times] : end_time_pair) {
+            for(const auto [end, times] : end_time_pair) {
                 bool start = false;
                 for(auto [addre, _] : block) {
                     if(!start) {
-                        if(addre == addr) {
+                        if(addre == start_offset) {
                             start = true;
                         } else {
                             continue;
@@ -178,20 +178,25 @@ std::map<std::string, std::map<std::string, int> > result = {}) {
     return ::nlohmann::json(result);
 }
 
-int main() {
+int main(int argc, char **argv) {
     int child = fork();
     if(child == 0) {
         ptrace(PTRACE_TRACEME, 0, 0, 0);
         // execl("/bin/ls", "ls");
         execl("./a.out", "out");
     } else {
-        printf("%d\n", child);
-        // some_time_trace(child);
-        std::cerr << dump_and_trace_sign(child).dump(4);
-        return 0;
-        ::ptraceProf::processProf pp;
-        pp.trace(child);
-        std::cerr << analize(analize_trace(pp), pp.get_direct_count()).dump(4);
+        std::cout << "child == " << child << std::endl;
+        if(argc == 2) {
+            std::ofstream out("./test.sign.json");
+            out << dump_and_trace_sign(child).dump(4);
+            out.close();
+        } else {
+            std::ofstream outb("./test.bolck.json");
+            ::ptraceProf::processProf pp;
+            pp.trace(child);
+            outb << analize(analize_trace(pp), pp.get_direct_count()).dump(4);
+            outb.close();
+        }
     }
     return 0;
 }
