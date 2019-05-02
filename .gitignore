@@ -5,3 +5,4 @@ test.*
 *.swp
 .*
 !.gitignore
+a.out
