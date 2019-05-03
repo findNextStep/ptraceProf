@@ -41,7 +41,7 @@ int main() {
     // return 0;
     cout << "size " <<read_objdump(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out")).size() << endl;
     cout << endl;
-    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so",false));
+    read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libm-2.27.so"));
     // read_n_line(get_cmd_stream("objdump -d /lib/x86_64-linux-gnu/libgcc_s.so.1"));
     // read_n_line(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out"));
     // read_n_line(get_cmd_stream("objdump -d /home/pxq/final_design/ptrace_prof/a.out"));
