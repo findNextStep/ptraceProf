@@ -1,3 +1,6 @@
 [submodule "third_party/json"]
 	path = third_party/json
 	url = https://github.com/nlohmann/json
+[submodule "third_party/gethin"]
+	path = third_party/gethin
+	url = https://github.com/MattiasLiljeson/gethin
