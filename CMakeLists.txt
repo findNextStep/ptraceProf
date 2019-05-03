@@ -3,9 +3,12 @@ project(ptrace_prof)
 
 include_directories(include)
 
-include_directories(third_party/json/single_include)
+include_directories(
+    third_party/json/single_include
+    third_party/gethin/single_include
+)
 
-add_compile_options(-std=c++1z)
+add_compile_options(-std=c++17)
 add_compile_options(-g)
 
 add_library(processProf src/processTrace.cpp)
