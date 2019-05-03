@@ -6,6 +6,7 @@
 #include <sstream>
 #include <time.h>
 #include <sys/user.h>
+#include <thread>
 
 std::string lltoString(long long t) {
     std::string result;
@@ -133,47 +134,54 @@ bool no_run(const std::string &info) {
 }
 
 
-auto analize(const std::map<std::string, std::map<int, std::map<int, int> > >&ans,
+auto analize(const std::map<std::string, std::map<int, std::map<int, int> > > &ans,
 std::map<std::string, std::map<std::string, int> > result = {}) {
     // std::map<std::string, std::map<int, std::map<int, int> > > ans = js;
-    for(auto [file, add_pair] : ans) {
-        auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
-        auto block = ::ptraceProf::dumpReader::read_block(obj_s);
-        std::cout << file << std::endl;
-        for(auto [start_offset, end_time_pair] : add_pair) {
-            while(!add_in_block(start_offset, block)) {
-                if(!obj_s) {
+    std::vector<std::thread> threads;
+    for(const auto&[file, add_pair] : ans) {
+        // TODO 线程数量检查
+        threads.push_back(std::thread([&]() {
+            auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
+            auto block = ::ptraceProf::dumpReader::read_block(obj_s);
+            std::cout << file << std::endl;
+            for(const auto&[start_offset, end_time_pair] : add_pair) {
+                while(!add_in_block(start_offset, block)) {
+                    if(!obj_s) {
+                        break;
+                    }
+                    block = ::ptraceProf::dumpReader::read_block(obj_s);
+                }
+                if(!block.size()) {
                     break;
                 }
-                block = ::ptraceProf::dumpReader::read_block(obj_s);
-            }
-            if(!block.size()) {
-                break;
-            }
 
-            for(const auto [end, times] : end_time_pair) {
-                bool start = false;
-                for(auto [addre, _] : block) {
-                    if(!start) {
-                        if(addre == start_offset) {
-                            start = true;
-                        } else {
+                for(const auto [end, times] : end_time_pair) {
+                    bool start = false;
+                    for(auto [addre, _] : block) {
+                        if(!start) {
+                            if(addre == start_offset) {
+                                start = true;
+                            } else {
+                                continue;
+                            }
+                        }
+                        if(no_run(std::get<1>(_))) {
                             continue;
                         }
-                    }
-                    if(no_run(std::get<1>(_))) {
-                        continue;
-                    }
-                    result[file][lltoString(addre)] += times;
-                    if(force_jump(std::get<1>(_))) {
-                        break;
-                    }
-                    if(end != -1 && may_jump(std::get<1>(_), end)) {
-                        break;
+                        result[file][lltoString(addre)] += times;
+                        if(force_jump(std::get<1>(_))) {
+                            break;
+                        }
+                        if(end != -1 && may_jump(std::get<1>(_), end)) {
+                            break;
+                        }
                     }
                 }
             }
-        }
+        }));
+    }
+    for(auto &thread : threads) {
+        thread.join();
     }
     return ::nlohmann::json(result);
 }

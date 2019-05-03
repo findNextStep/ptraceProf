@@ -16,7 +16,7 @@ add_library(pipe src/pipe.cpp)
 add_library(readDump src/readDump.cpp)
 
 add_executable(main main.cpp)
-target_link_libraries(main processProf mapsReader orderMap pipe readDump)
+target_link_libraries(main processProf mapsReader orderMap pipe readDump pthread)
 
 add_executable(map_read_test test/test_mapReader.cpp)
 target_link_libraries(map_read_test mapsReader)
