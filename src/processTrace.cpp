@@ -19,7 +19,7 @@ int processProf::force_jump(const std::string &info) {
         return force_jump(info.substr(4));
     }
     std::vector<std::string> force_jump_list = {
-        "callq", "jmpq", "retq", "repz", "syscall"
+        "callq", "jmpq", "retq", "syscall", "jmp "
     };
     for(auto front : force_jump_list) {
         if(start_with(info, front)) {
@@ -38,6 +38,16 @@ int processProf::force_jump(const std::string &info) {
     return 0;
 }
 
+bool processProf::need_check(const std::string &info) {
+    if(start_with(info, "rep ")) {
+        return true;
+    } else if(start_with(info, "repz ")) {
+        return true;
+    } else if(start_with(info, "repe ")) {
+        return true;
+    }
+    return false;
+}
 
 unsigned int processProf::may_jump(const std::string &info) {
     if(info.size() == 0) {
@@ -84,13 +94,11 @@ std::set<unsigned int>processProf::update_singlestep_map(const std::map< unsigne
         std::string > > &block) {
     std::set<unsigned int> ans;
     if(block.size()) {
-        unsigned int block_start = block.begin()->first;
         // 当前块的路径
         std::set<unsigned int> has;
         // 条件跳转的出口
         std::set<unsigned int> outs;
         for(auto [addre, _] : block) {
-            // std::cout << std::hex << addre << std::endl;
             auto [__, info] = _;
             has.insert(addre);
             unsigned int out = 0;
@@ -112,6 +120,12 @@ std::set<unsigned int>processProf::update_singlestep_map(const std::map< unsigne
                 } else {
                     outs.insert(out);
                 }
+            } else if(need_check(info)) {
+                // 如果当前语句需要单步检查，标记队列中包括本句在内的所有语句
+                for(auto point : has) {
+                    ans.insert(point);
+                }
+                ans.insert(addre);
             }
         }
     }

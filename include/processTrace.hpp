@@ -44,6 +44,8 @@ public:
 
     static unsigned int may_jump(const std::string &info);
 
+    static bool need_check(const std::string&info);
+
     static std::string lltoString(long long);
 
     static bool may_jump(const std::string &info, const unsigned long long next_addre);
