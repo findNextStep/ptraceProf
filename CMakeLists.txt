@@ -8,6 +8,10 @@ include_directories(third_party/json/single_include)
 add_compile_options(-std=c++1z)
 add_compile_options(-g)
 
+add_library(processProf src/processTrace.cpp)
+
+link_libraries(processProf)
+
 add_executable(main main.cpp)
 
 add_executable(map_read_test test/test_mapReader.cpp)
