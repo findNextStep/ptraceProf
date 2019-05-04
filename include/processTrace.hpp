@@ -99,7 +99,7 @@ protected:
 
     bool ptrace_once(const pid_t pid);
 
-    void checkip(const ip_t ip,const pid_t pid);
+    void checkip(const ip_t ip, const pid_t pid);
 
     std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip, const pid_t pid) {
         auto ans = get_offset_and_file_by_ip(ip);
@@ -110,14 +110,7 @@ protected:
         return get_offset_and_file_by_ip(ip);
     }
     std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip) const {
-        for(auto [file, ranges] : file_map) {
-            for(auto range : ranges) {
-                if(in_range(ip, range)) {
-                    return std::make_pair(file, (ip - range.start + range.offset));
-                }
-            }
-        }
-        return std::make_pair(std::string(), 0);
+        return find_file_and_offset(this->file_map, ip);
     }
 
 public:
