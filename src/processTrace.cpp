@@ -260,48 +260,35 @@ bool processProf::check_process(const pid_t pid) {
 }
 
 bool processProf::ptrace_once(const pid_t pid) {
-    if(this->singleblock(pid)) {
-        auto ip = get_ip(pid);
-        auto [file, offset] = get_offset_and_file_by_ip(ip);
-        std::cerr << "noral " << file << "\t" << lltoString(offset) << '\n';
-        // else {
-        // no hit cache
-        auto it = find_range(pid, ip);
-        if(it == pid_order[pid].end()) {
-            // if no found rip in maps reload maps and try again
-            // TODO 增量式maps读取
-            this->reflush_map(pid);
-            it = find_range(pid, ip);
-            // TODO error detect
+    if(lastcommand[pid] && !need_singlestep[lastcommand[pid]]) {
+        if(this->singleblock(pid)) {
+            auto ip = get_ip(pid);
+            auto [file, offset] = get_offset_and_file_by_ip(ip, pid);
+            std::cerr << "noral " << file << "\t" << lltoString(offset) << '\n';
+            if(lastcommand[pid]) {
+                std::cerr << "setin ";
+                std::tie(file, offset) = get_offset_and_file_by_ip(lastcommand[pid], pid);
+                std::cerr << file << "\t" << lltoString(offset) << "\tto ";
+                std::tie(file, offset) = get_offset_and_file_by_ip(ip, pid);
+                std::cerr << file << "\t" << lltoString(offset) << '\n';
+                this->ans[pid][lastcommand[pid]][ip] ++;
+            }
+            lastcommand[pid] = ip;
+            return true;
+        } else {
+            return false;
         }
+    } else {
         if(lastcommand[pid]) {
-            std::cerr << "setin ";
-            std::tie(file, offset) = get_offset_and_file_by_ip(lastcommand[pid]);
-            std::cerr << file << "\t" << lltoString(offset) << "\tto ";
-            std::tie(file, offset) = get_offset_and_file_by_ip(ip);
-            std::cerr << file << "\t" << lltoString(offset) << '\n';
-            this->ans[pid][lastcommand[pid]][ip] ++;
+            this->direct_count[lastcommand[pid]]++;
         }
-        lastcommand[pid] = ip;
-        if(this->need_singlestep[ip]) {
-            this->direct_count[ip] += 1;
-            do {
-                if(this->singlestep(pid)) {
-                    ip = get_ip(pid);
-                    std::tie(file, offset) = get_offset_and_file_by_ip(ip);
-                    std::cerr << "insin " << file << "\t" << lltoString(offset) << std::endl;
-                    this->direct_count[ip] += 1;
-                } else {
-                    return false;
-                }
-            } while(this->need_singlestep[ip]);
-            lastcommand[pid] = get_ip(pid);
-            std::tie(file, offset) = get_offset_and_file_by_ip(ip);
-            std::cerr << "outsi " << file << "\t" << lltoString(offset) << std::endl;
-            this->direct_count[ip] -= 1;
+        if(this->singlestep(pid)) {
+            const auto ip = get_ip(pid);
+            auto[file, offset] = get_offset_and_file_by_ip(ip, pid);
+            std::cerr << "insin " << file << "\t" << lltoString(offset) << std::endl;
+            lastcommand[pid] = ip;
             return true;
         }
-        return true;
     }
     return false;
 }
