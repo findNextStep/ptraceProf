@@ -12,7 +12,11 @@
 namespace ptraceProf {
 
 processProf::ip_t processProf::get_ip(const pid_t pid) {
+#ifdef __x86_64__
     return ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
+#else
+    return ptrace(PTRACE_PEEKUSER, pid, 4 * EIP, NULL);
+#endif
 }
 
 bool processProf::singleblock(const pid_t pid) {
