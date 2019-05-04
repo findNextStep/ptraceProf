@@ -63,7 +63,6 @@ private:
 
     std::map<pid_t, orders> pid_order;
     std::map<pid_t, ip_t> lastcommand;
-    std::map<pid_t, orders::iterator> range_cache;
 
     std::unordered_map<ip_t, bool> need_singlestep;
     std::unordered_map<ip_t, int> direct_count;
@@ -115,7 +114,6 @@ protected:
 
 public:
     void trace(const pid_t pid) {
-        range_cache[pid] = pid_order[pid].end();
         while(ptrace_once(pid)) {}
     }
 
