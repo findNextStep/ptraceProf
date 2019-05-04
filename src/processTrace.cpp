@@ -293,7 +293,7 @@ bool processProf::ptrace_once(const pid_t pid) {
     return false;
 }
 
-std::map<std::string, std::map<std::string, int> > processProf::analize(std::map<std::string, std::map<std::string, int> > result) {
+std::map<std::string, std::map<std::string, int> > processProf::analize(std::map<std::string, std::map<std::string, int> > result) const {
     const auto ans =  analize_trace();
     for(auto [ip, times] : this->direct_count) {
         auto [file, offset] = get_offset_and_file_by_ip(ip);
@@ -348,13 +348,13 @@ std::map<std::string, std::map<std::string, int> > processProf::analize(std::map
     return result;
 }
 
-std::map<std::string, std::map<int, std::map<int, int> > >processProf::analize_trace() {
+std::map<std::string, std::map<int, std::map<int, int> > >processProf::analize_trace() const {
     // {file : {start_ip : {end_ip,time}}}
     std::map<std::string, std::map<int, std::map<int, int> > > result;
     for(const auto &[pid, order_result] : ans) {
         for(const auto[start_ip, outs] : order_result) {
+            const auto [start_file, start_offset] = get_offset_and_file_by_ip(start_ip);
             for(const auto[end_ip, times] : outs) {
-                const auto [start_file, start_offset] = get_offset_and_file_by_ip(start_ip);
                 const auto [end_file, end_offset] = get_offset_and_file_by_ip(end_ip);
                 if(start_file == end_file) {
                     result[start_file][start_offset][end_offset] += times;
@@ -374,11 +374,27 @@ void processProf::checkip(const ip_t ip, const pid_t pid) {
     }
 }
 
+bool is_dynamic_file(const std::string &file) {
+    static std::map<std::string, bool> is_dynamic;
+    auto it = is_dynamic.find(file);
+    if(it == is_dynamic.end()) {
+        auto fs = get_cmd_stream("file " + file);
+        const std::string line = fs.str();
+        is_dynamic[file] = line.find("dynamically linked") != std::string::npos;
+        it = is_dynamic.find(file);
+    }
+    return it->second;
+}
+
 std::pair<std::string, ip_t> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, const ip_t ip) {
     for(const auto &[file, ranges] : file_map) {
         for(const auto range : ranges) {
             if(::ptraceProf::in_range(ip, range)) {
-                return std::make_pair(file, ip - range.start + range.offset);
+                if(is_dynamic_file(file)) {
+                    return std::make_pair(file, ip - range.start + range.offset);
+                } else {
+                    return std::make_pair(file, ip);
+                }
             }
         }
     }

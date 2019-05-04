@@ -119,9 +119,9 @@ public:
         while(ptrace_once(pid)) {}
     }
 
-    std::map<std::string, std::map<int, std::map<int, int> > > analize_trace();
+    std::map<std::string, std::map<int, std::map<int, int> > > analize_trace() const;
 
-    std::map<std::string, std::map<std::string, int> > analize(std::map<std::string, std::map<std::string, int> > result = {});
+    std::map<std::string, std::map<std::string, int> > analize(std::map<std::string, std::map<std::string, int> > result = {}) const;
 };
 
 } // namespace ptraceProf
