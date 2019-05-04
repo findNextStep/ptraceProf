@@ -297,5 +297,80 @@ bool processProf::ptrace_once(const pid_t pid) {
     return false;
 }
 
+std::map<std::string, std::map<std::string, int> > processProf::analize(std::map<std::string, std::map<std::string, int> > result) {
+    const auto ans =  analize_trace();
+    for(auto [ip, times] : this->direct_count) {
+        auto [file, offset] = get_offset_and_file_by_ip(ip);
+        result[file][lltoString(offset)] += times;
+    }
+    std::vector<std::thread> threads;
+    for(const auto&[file, add_pair] : ans) {
+        // TODO 线程数量检查
+        threads.push_back(std::thread([&]() {
+            auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
+            auto block = ::ptraceProf::dumpReader::read_block(obj_s);
+            std::cout << file << std::endl;
+            for(const auto&[start_offset, end_time_pair] : add_pair) {
+                while(block.find(start_offset) == block.end()) {
+                    if(!obj_s) {
+                        break;
+                    }
+                    block = ::ptraceProf::dumpReader::read_block(obj_s);
+                }
+                if(!block.size()) {
+                    break;
+                }
+
+                for(const auto [end, times] : end_time_pair) {
+                    bool start = false;
+                    for(auto [addre, _] : block) {
+                        if(!start) {
+                            if(addre == start_offset) {
+                                start = true;
+                            } else {
+                                continue;
+                            }
+                        }
+                        if(no_run(std::get<1>(_))) {
+                            continue;
+                        }
+                        result[file][lltoString(addre)] += times;
+                        if(force_jump(std::get<1>(_))) {
+                            break;
+                        }
+                        if(end != -1 && may_jump(std::get<1>(_), end)) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }));
+    }
+    for(auto &thread : threads) {
+        thread.join();
+    }
+    return result;
+}
+
+std::map<std::string, std::map<int, std::map<int, int> > >processProf::analize_trace() {
+    // {file : {start_ip : {end_ip,time}}}
+    std::map<std::string, std::map<int, std::map<int, int> > > result;
+    for(const auto &[pid, order_result] : ans) {
+        for(const auto[start_ip, outs] : order_result) {
+            for(const auto[end_ip, times] : outs) {
+                const auto [start_file, start_offset] = get_offset_and_file_by_ip(start_ip);
+                const auto [end_file, end_offset] = get_offset_and_file_by_ip(end_ip);
+                if(start_file == end_file) {
+                    result[start_file][start_offset][end_offset] += times;
+                } else {
+                    result[start_file][start_offset][-1] += times;
+                }
+            }
+        }
+    }
+    return result;
+}
+
+
 
 }
