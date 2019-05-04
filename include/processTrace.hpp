@@ -1,17 +1,11 @@
 #pragma once
+
 #include "orderMap.hpp"
 #include "mapsReader.hpp"
+
 #include <map>
 #include <set>
 #include <unordered_map>
-#include <sys/types.h> // pid_t
-#include <sys/reg.h> // RIP
-#include <sys/wait.h>
-#include <sys/ptrace.h>
-#include <signal.h>
-#include <dirent.h> // opendir
-#include <unistd.h>
-#include <stdio.h>
 
 namespace ptraceProf {
 
@@ -44,7 +38,7 @@ public:
 
     static unsigned int may_jump(const std::string &info);
 
-    static bool need_check(const std::string&info);
+    static bool need_check(const std::string &info);
 
     static std::string lltoString(long long);
 
@@ -60,49 +54,17 @@ public:
 
     void reflush_map(const pid_t pid);
 
-    static inline ip_t get_ip(const pid_t pid) {
-        return ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
-    }
+    static ip_t get_ip(const pid_t pid);
 
     bool check_process(const pid_t pid);
 
-    inline bool singleblock(const pid_t pid) {
-        int status = 0;
-        ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
-        if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-            return check_process(pid);
-        }
-        return true;
-    }
+    inline bool singleblock(const pid_t pid);
 
-    inline bool singlestep(const pid_t pid) {
-        int status = 0;
-        ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
-        if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-            return check_process(pid);
-        }
-        return true;
-    }
+    inline bool singlestep(const pid_t pid);
 
-    bool process_pause(const int pid) {
-        if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
-            fprintf(stderr, "process %d cannot attach\n", pid);
-            return check_process(pid);
-        }
-        int status;
-        if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-            return check_process(pid);
-        }
-        return true;
-    }
+    bool process_pause(const int pid);
 
-    void procsss_start(const int pid) {
-        lastcommand[pid] = 0;
-        if(ptrace(PTRACE_DETACH, pid, 0, 0)) {
-            fprintf(stderr, "fail to detach pid :%d\n", pid);
-            check_process(pid);
-        }
-    }
+    bool procsss_start(const int pid);
 
     static std::vector<pid_t> ListThreads(pid_t pid);
 
@@ -140,6 +102,14 @@ public:
         return result;
     }
 
+    std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip, const pid_t pid) {
+        auto ans = get_offset_and_file_by_ip(ip);
+        if(ans.first.size()) {
+            return ans;
+        }
+        reflush_map(pid);
+        return get_offset_and_file_by_ip(ip);
+    }
     std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip) const {
         for(auto [file, ranges] : file_map) {
             for(auto range : ranges) {

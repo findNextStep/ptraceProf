@@ -8,6 +8,14 @@
 #include <sys/user.h>
 #include <thread>
 #include "gethin.hpp"
+#include <sys/types.h> // pid_t
+#include <sys/reg.h> // RIP
+#include <sys/wait.h>
+#include <sys/ptrace.h>
+#include <signal.h>
+#include <dirent.h> // opendir
+#include <unistd.h>
+#include <stdio.h>
 
 std::string lltoString(long long t) {
     std::string result;
@@ -226,25 +234,29 @@ int main(int argc, char **argv) {
         if(exec_path.value().empty()) {
             execl("./a.out", "out");
         } else {
-            execl(exec_path.value().c_str(),"tracee");
+            execl(exec_path.value().c_str(), "tracee");
         }
     }
     // in tracer porcess
-    std::cout << "child_pid == " << child << std::endl;
+    std::cout << "child_pid == " << child;
     std::map<std::string, std::map<std::string, int> > ans;
     // command line value check
     if(step_file.value().size()) {
         freopen(step_file.value().c_str(), "w", stderr);
     }
+    ::ptraceProf::processProf pp;
     if(single_step.value()) {
+        std::cout << "in single step";
         ans = dump_and_trace_sign(child);
     } else {
-        ::ptraceProf::processProf pp;
+        std::cout << "in block step";
         pp.trace(child);
-        ans = analize(analize_trace(pp), pp.get_direct_count());
     }
     std::cout << "finish" << std::endl;
     if(final_result_file.value().size()) {
+        if(!single_step.value()) {
+            ans = analize(analize_trace(pp), pp.get_direct_count());
+        }
         std::ofstream of(final_result_file.value());
         of << ::nlohmann::json(ans).dump(4);
     }

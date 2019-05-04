@@ -1,6 +1,57 @@
-#include <processTrace.hpp>
+#include "processTrace.hpp"
+
+#include <sys/types.h> // pid_t
+#include <sys/reg.h> // RIP
+#include <sys/wait.h>
+#include <sys/ptrace.h>
+#include <signal.h>
+#include <dirent.h> // opendir
+#include <unistd.h>
+#include <stdio.h>
 
 namespace ptraceProf {
+
+processProf::ip_t processProf::get_ip(const pid_t pid) {
+    return ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
+}
+
+bool processProf::singleblock(const pid_t pid) {
+    int status = 0;
+    ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
+    if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
+        return check_process(pid);
+    }
+    return true;
+}
+
+bool processProf::singlestep(const pid_t pid) {
+    int status = 0;
+    ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
+    if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
+        return check_process(pid);
+    }
+    return true;
+}
+
+bool processProf::process_pause(const pid_t pid) {
+    if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
+        fprintf(stderr, "process %d cannot attach\n", pid);
+        return check_process(pid);
+    }
+    int status;
+    if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
+        return check_process(pid);
+    }
+    return true;
+}
+
+bool processProf::procsss_start(const pid_t pid) {
+    lastcommand[pid] = 0;
+    if(ptrace(PTRACE_DETACH, pid, 0, 0)) {
+        fprintf(stderr, "fail to detach pid :%d\n", pid);
+        return check_process(pid);
+    }
+}
 
 bool processProf::start_with(const std::string &base, const std::string &head) {
     for(int i = 0; i < head.size(); ++i) {
