@@ -11,7 +11,12 @@
 
 namespace ptraceProf {
 
-processProf::ip_t processProf::get_ip(const pid_t pid) {
+
+void ptraceThisProcess() {
+    ptrace(PTRACE_TRACEME, 0, 0, 0);
+}
+
+ip_t get_ip(const pid_t pid) {
 #ifdef __x86_64__
     return ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
 #else
@@ -57,7 +62,7 @@ bool processProf::procsss_start(const pid_t pid) {
     }
 }
 
-bool processProf::start_with(const std::string &base, const std::string &head) {
+bool start_with(const std::string &base, const std::string &head) {
     for(int i = 0; i < head.size(); ++i) {
         if(base[i] != head[i]) {
             return false;
@@ -66,7 +71,7 @@ bool processProf::start_with(const std::string &base, const std::string &head) {
     return true;
 }
 
-int processProf::force_jump(const std::string &info) {
+int force_jump(const std::string &info) {
     if(info.size() == 0) {
         return 0;
     }
@@ -93,7 +98,7 @@ int processProf::force_jump(const std::string &info) {
     return 0;
 }
 
-bool processProf::need_check(const std::string &info) {
+bool need_check(const std::string &info) {
     if(start_with(info, "rep ")) {
         return true;
     } else if(start_with(info, "repz ")) {
@@ -104,7 +109,7 @@ bool processProf::need_check(const std::string &info) {
     return false;
 }
 
-unsigned int processProf::may_jump(const std::string &info) {
+unsigned int may_jump(const std::string &info) {
     if(info.size() == 0) {
         return 0;
     }
@@ -131,7 +136,7 @@ unsigned int processProf::may_jump(const std::string &info) {
     return 0;
 }
 
-std::string processProf::lltoString(long long t) {
+std::string lltoString(long long t) {
     std::string result;
     std::stringstream ss;
     ss << " " << std::hex << t << " ";
@@ -139,7 +144,7 @@ std::string processProf::lltoString(long long t) {
     return result;
 }
 
-bool processProf::may_jump(const std::string &info, const unsigned long long next_addre) {
+bool may_jump(const std::string &info, const unsigned long long next_addre) {
     auto add = lltoString(next_addre);
     return info.find(add) != std::string::npos;
 }
@@ -230,7 +235,7 @@ void processProf::reflush_map(const pid_t pid) {
     }
 }
 
-std::vector<pid_t> processProf::ListThreads(pid_t pid) {
+std::vector<pid_t> ListThreads(pid_t pid) {
     std::vector<pid_t> result;
     std::stringstream dirname;
     dirname << "/proc/" << pid << "/task";
@@ -279,8 +284,6 @@ bool processProf::ptrace_once(const pid_t pid) {
             }
             lastcommand[pid] = ip;
             return true;
-        } else {
-            return false;
         }
     } else {
         if(lastcommand[pid]) {
@@ -371,6 +374,58 @@ std::map<std::string, std::map<int, std::map<int, int> > >processProf::analize_t
     return result;
 }
 
+std::pair<std::string, unsigned long long> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long long ip) {
+    for(const auto &[file, ranges] : file_map) {
+        for(const auto range : ranges) {
+            if(::ptraceProf::in_range(ip, range)) {
+                return std::make_pair(file, ip - range.start + range.offset);
+            }
+        }
+    }
+    return std::make_pair(std::string(), 0);
+}
 
+
+std::pair<std::unordered_map<ip_t, unsigned long long>, maps> dump_and_trace_sign(const int pid) {
+    int status = -1;
+    wait(&status);
+    maps map = ::ptraceProf::mapsReader::readMaps(pid);
+    //{filename:{addre(hex),time}}
+    std::unordered_map<ip_t, unsigned long long> result;
+    std::map<std::string, std::map<std::string, int> > ans;
+    while(1) {
+        ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
+        if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
+            if(kill(pid, 0)) {
+                break;
+            }
+            fprintf(stderr, "fail to wait pid :%d process may exited\n", pid);
+            fprintf(stderr, "the tracer process will continue\n");
+            break;
+        }
+        const auto ip = get_ip(pid);
+        auto [file, offset] = find_file_and_offset(map, ip);
+        if(file == "") {
+            map = ::ptraceProf::mapsReader::readMaps(pid);
+            std::tie(file, offset) = find_file_and_offset(map, ip);
+        }
+        ans[file][lltoString(offset)]++;
+
+        result[ip]++;
+        // struct user_regs_struct regs;
+        // ptrace(PTRACE_GETREGS,pid,nullptr,&regs);
+        std::cerr << lltoString(offset) << '\t' << file << '\n';
+    }
+    return std::make_pair(result, map);
+}
+
+std::map<std::string, std::map<std::string, int> > analize(const std::unordered_map<ip_t, unsigned long long> &count, const maps &map) {
+    std::map<std::string, std::map<std::string, int> > result;
+    for(const auto [ip, times] : count) {
+        const auto[file, offset] = find_file_and_offset(map, ip);
+        result[file][lltoString(offset)] = times;
+    }
+    return result;
+}
 
 }

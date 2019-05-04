@@ -1,71 +1,7 @@
-#include <iostream>
-#include "orderMap.hpp"
-#include "readDump.hpp"
 #include "processTrace.hpp"
+#include <iostream>
 #include <nlohmann/json.hpp>
-#include <sstream>
-#include <time.h>
-#include <sys/user.h>
-#include <thread>
 #include "gethin.hpp"
-#include <sys/types.h> // pid_t
-#include <sys/reg.h> // RIP
-#include <sys/wait.h>
-#include <sys/ptrace.h>
-#include <signal.h>
-#include <dirent.h> // opendir
-#include <unistd.h>
-#include <stdio.h>
-
-std::string lltoString(long long t) {
-    std::string result;
-    std::stringstream ss;
-    ss << std::hex << t;
-    ss >> result;
-    return result;
-}
-
-std::pair<std::string, unsigned long long> _find_it(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long long ip) {
-    for(const auto &[file, ranges] : file_map) {
-        for(const auto range : ranges) {
-            if(::ptraceProf::processProf::in_range(ip, range)) {
-                return std::make_pair(file, ip - range.start + range.offset);
-            }
-        }
-    }
-    return std::make_pair(std::string(), 0);
-}
-
-auto dump_and_trace_sign(const int pid) {
-    int status = -1;
-    wait(&status);
-    auto maps = ::ptraceProf::mapsReader::readMaps(pid);
-    //{filename:{addre(hex),time}}
-    std::map<std::string, std::map<std::string, int> > ans;
-    while(1) {
-        ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
-        if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-            if(kill(pid, 0)) {
-                break;
-            }
-            fprintf(stderr, "fail to wait pid :%d process may exited\n", pid);
-            fprintf(stderr, "the tracer process will continue\n");
-            break;
-        }
-        long ip = ptrace(PTRACE_PEEKUSER, pid, 8 * RIP, NULL);
-        auto [file, offset] = _find_it(maps, ip);
-        if(file == "") {
-            maps = ::ptraceProf::mapsReader::readMaps(pid);
-            std::tie(file, offset) = _find_it(maps, ip);
-        }
-        ans[file][lltoString(offset)]++;
-
-        // struct user_regs_struct regs;
-        // ptrace(PTRACE_GETREGS,pid,nullptr,&regs);
-        std::cerr << lltoString(offset) << '\t' << file << '\n';
-    }
-    return ans;
-}
 
 int main(int argc, char **argv) {
     gethin::Flag single_step = gethin::Flag()
@@ -89,20 +25,22 @@ int main(int argc, char **argv) {
         &final_result_file,
         &exec_path,
     }, "ptraceProf");
-    try {
-        optReader.read(argc, argv);
-    } catch(const std::invalid_argument &e) {
-        std::cerr << e.what() << std::endl;
-        return 1;
-    } catch(...) {
-        std::cerr << "Error during execution!" << std::endl;
-        return 1;
+    if(argc > 1) {
+        try {
+            optReader.read(argc, argv);
+        } catch(const std::invalid_argument &e) {
+            std::cerr << e.what() << std::endl;
+            return 1;
+        } catch(...) {
+            std::cerr << "Error during execution!" << std::endl;
+            return 1;
+        }
     }
 
     int child = fork();
     if(child == 0) {
         // in tracee process
-        ptrace(PTRACE_TRACEME, 0, 0, 0);
+        ::ptraceProf::ptraceThisProcess();
         if(exec_path.value().empty()) {
             execl("./a.out", "out");
         } else {
@@ -111,26 +49,37 @@ int main(int argc, char **argv) {
     }
     // in tracer porcess
     std::cout << "child_pid == " << child;
-    std::map<std::string, std::map<std::string, int> > ans;
     // command line value check
     if(step_file.value().size()) {
         freopen(step_file.value().c_str(), "w", stderr);
     }
     ::ptraceProf::processProf pp;
+
+    std::map<std::string, std::map<std::string, int> > ans;
     if(single_step.value()) {
-        std::cout << "in single step";
-        ans = dump_and_trace_sign(child);
-    } else {
-        std::cout << "in block step";
-        pp.trace(child);
-    }
-    std::cout << "finish" << std::endl;
-    if(final_result_file.value().size()) {
-        if(!single_step.value()) {
-            ans = pp.analize();
+        std::cout << "\tin single step" << std::endl;
+        auto [count, maps] = ::ptraceProf::dump_and_trace_sign(child);
+        std::cout << "finish" << std::endl;
+        if(final_result_file.value().size()) {
+            ans = ::ptraceProf::analize(count, maps);
+            std::ofstream of(final_result_file.value());
+            of << ::nlohmann::json(ans).dump(4);
+        } else {
+            ans = ::ptraceProf::analize(count, maps);
+            std::cerr << ::nlohmann::json(ans).dump(4);
         }
-        std::ofstream of(final_result_file.value());
-        of << ::nlohmann::json(ans).dump(4);
+    } else {
+        std::cout << "\tin block step" << std::endl;
+        pp.trace(child);
+        std::cout << "finish" << std::endl;
+        if(final_result_file.value().size()) {
+            ans = pp.analize();
+            std::ofstream of(final_result_file.value());
+            of << ::nlohmann::json(ans).dump(4);
+        } else {
+            ans = pp.analize();
+            std::cerr << ::nlohmann::json(ans).dump(4);
+        }
     }
     return 0;
 }
