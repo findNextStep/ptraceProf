@@ -272,14 +272,8 @@ bool processProf::ptrace_once(const pid_t pid) {
     if(lastcommand[pid] && !need_singlestep[lastcommand[pid]]) {
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
-            auto [file, offset] = get_offset_and_file_by_ip(ip, pid);
-            std::cerr << "noral " << file << "\t" << lltoString(offset) << '\n';
+            checkip(ip, pid);
             if(lastcommand[pid]) {
-                std::cerr << "setin ";
-                std::tie(file, offset) = get_offset_and_file_by_ip(lastcommand[pid], pid);
-                std::cerr << file << "\t" << lltoString(offset) << "\tto ";
-                std::tie(file, offset) = get_offset_and_file_by_ip(ip, pid);
-                std::cerr << file << "\t" << lltoString(offset) << '\n';
                 this->ans[pid][lastcommand[pid]][ip] ++;
             }
             lastcommand[pid] = ip;
@@ -291,8 +285,7 @@ bool processProf::ptrace_once(const pid_t pid) {
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
-            auto[file, offset] = get_offset_and_file_by_ip(ip, pid);
-            std::cerr << "insin " << file << "\t" << lltoString(offset) << std::endl;
+            checkip(ip, pid);
             lastcommand[pid] = ip;
             return true;
         }
@@ -374,7 +367,14 @@ std::map<std::string, std::map<int, std::map<int, int> > >processProf::analize_t
     return result;
 }
 
-std::pair<std::string, unsigned long long> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long long ip) {
+void processProf::checkip(const ip_t ip, const pid_t pid) {
+    auto[file, offset] = this->get_offset_and_file_by_ip(ip);
+    if(file.empty()) {
+        reflush_map(pid);
+    }
+}
+
+std::pair<std::string, ip_t> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, const ip_t ip) {
     for(const auto &[file, ranges] : file_map) {
         for(const auto range : ranges) {
             if(::ptraceProf::in_range(ip, range)) {

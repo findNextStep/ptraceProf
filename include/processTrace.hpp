@@ -42,7 +42,7 @@ inline bool no_run(const std::string &info) {
     return !info.size();
 }
 
-std::pair<std::string, unsigned long long> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, unsigned long long ip);
+std::pair<std::string, ip_t> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, const ip_t ip);
 
 std::pair<std::unordered_map<ip_t, unsigned long long>, maps> dump_and_trace_sign(const int pid);
 
@@ -99,6 +99,8 @@ protected:
 
     bool ptrace_once(const pid_t pid);
 
+    void checkip(const ip_t ip,const pid_t pid);
+
     std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip, const pid_t pid) {
         auto ans = get_offset_and_file_by_ip(ip);
         if(ans.first.size()) {
@@ -119,9 +121,6 @@ protected:
     }
 
 public:
-    const auto &get_file_map()const {
-        return this->file_map;
-    }
     void trace(const pid_t pid) {
         range_cache[pid] = pid_order[pid].end();
         while(ptrace_once(pid)) {}
