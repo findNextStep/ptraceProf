@@ -44,7 +44,13 @@ int main(int argc, char **argv) {
         if(exec_path.value().empty()) {
             execl("./a.out", "out");
         } else {
-            execl(exec_path.value().c_str(), "tracee");
+            std::string process_name = "tracee with ";
+            if(single_step.value()) {
+                process_name += "single";
+            } else {
+                process_name += "block";
+            }
+            execl(exec_path.value().c_str(), process_name.c_str());
         }
     }
     // in tracer porcess
