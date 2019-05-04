@@ -206,33 +206,31 @@ std::set<unsigned int> processProf::update_singlestep_map(const std::string &fil
 void processProf::stop_trace(const pid_t pid) {
     pid_order.erase(pid);
     lastcommand.erase(pid);
-    range_cache.erase(pid);
 }
 
 void processProf::reflush_map(const pid_t pid) {
     using ::ptraceProf::mapsReader::readMaps;
     using ::ptraceProf::orderMap::getProcessCount;
-    file_map = readMaps(pid);
+    const auto new_file_map = readMaps(pid);
     for(auto &order : this->pid_order) {
         getProcessCount(pid, order.second);
     }
-    for(auto &[pid, cache] : range_cache) {
-        cache = pid_order[pid].end();
-    }
-    this->need_singlestep.clear();
-    for(auto [file, ranges] : file_map) {
-        if(!::ptraceProf::orderMap::file_exist(file)) {
+    for(const auto [file, ranges] : new_file_map) {
+        if(!::ptraceProf::orderMap::file_exist(file)
+                && file_map.find(file) != file_map.end()) {
+            // 文件不存在或者文件已经处理过
             continue;
         }
-        auto list = update_singlestep_map(file);
-        for(auto addre : list) {
-            for(auto range : ranges) {
+        const auto list = update_singlestep_map(file);
+        for(const auto addre : list) {
+            for(const auto range : ranges) {
                 if(addre > range.offset && addre - range.offset + range.start < range.end) {
-                    need_singlestep[addre - range.offset + range.start] = true;
+                    need_singlestep[(unsigned long long)addre - range.offset + range.start] = true;
                 }
             }
         }
     }
+    file_map = new_file_map;
 }
 
 std::vector<pid_t> ListThreads(pid_t pid) {
