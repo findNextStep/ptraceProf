@@ -80,7 +80,7 @@ ip_t force_jump(const std::string &info) {
         return force_jump(info.substr(4));
     }
     std::vector<std::string> force_jump_list = {
-        "callq", "jmpq", "retq", "syscall", "jmp "
+        "callq", "jmpq", "retq", "syscall", "jmp " ,"repz retq "
     };
     for(auto front : force_jump_list) {
         if(start_with(info, front)) {
