@@ -45,6 +45,7 @@ inline bool no_run(const std::string &info) {
     return !info.size();
 }
 
+bool is_dynamic_file(const std::string &file);
 
 std::pair<std::string, ip_t> find_file_and_offset(const maps &file_map, const ip_t ip);
 
@@ -112,7 +113,7 @@ protected:
         reflush_map(pid);
         return get_offset_and_file_by_ip(ip);
     }
-    std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip) const {
+    inline std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip) const {
         return find_file_and_offset(this->file_map, ip);
     }
 

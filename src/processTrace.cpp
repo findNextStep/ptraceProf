@@ -80,7 +80,7 @@ ip_t force_jump(const std::string &info) {
         return force_jump(info.substr(4));
     }
     std::vector<std::string> force_jump_list = {
-        "callq", "jmpq", "retq", "syscall", "jmp " ,"repz retq "
+        "callq", "jmpq", "retq", "syscall", "jmp ", "repz retq "
     };
     for(auto front : force_jump_list) {
         if(start_with(info, front)) {
@@ -156,13 +156,13 @@ std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, s
     std::set<ip_t> ans;
     if(block.size()) {
         // 当前块的路径
-        std::set<unsigned int> has;
+        std::set<ip_t> has;
         // 条件跳转的出口
-        std::set<unsigned int> outs;
+        std::set<ip_t> outs;
         for(auto [addre, _] : block) {
             auto [__, info] = _;
             has.insert(addre);
-            unsigned int out = 0;
+            ip_t out = 0;
             if((out = force_jump(info)) != 0) {
                 if(outs.find(out) != outs.end()) {
                     // 如果已经有这个寻址点的出口，标记当前队列中所有地址
@@ -224,10 +224,16 @@ void processProf::reflush_map(const pid_t pid) {
         }
         const auto list = update_singlestep_map(file);
         for(const auto addre : list) {
-            for(const auto range : ranges) {
-                if(addre > range.offset && addre - range.offset + range.start < range.end) {
-                    need_singlestep[addre - range.offset + range.start] = true;
+            if(is_dynamic_file(file)) {
+                for(const auto range : ranges) {
+                    if(addre > range.offset && addre - range.offset + range.start < range.end) {
+                        if(is_dynamic_file(file)) {
+                            need_singlestep[addre - range.offset + range.start] = true;
+                        }
+                    }
                 }
+            } else {
+                need_singlestep[addre] = true;
             }
         }
     }
