@@ -291,79 +291,13 @@ bool processProf::ptrace_once(const pid_t pid) {
     return false;
 }
 
-std::map<std::string, std::map<std::string, int> > processProf::analize(std::map<std::string, std::map<std::string, int> > result) const {
-    const auto ans =  analize_trace();
-    for(auto [ip, times] : this->direct_count) {
-        auto [file, offset] = get_offset_and_file_by_ip(ip);
-        result[file][lltoString(offset)] += times;
-    }
-    std::vector<std::thread> threads;
-    for(const auto&[file, add_pair] : ans) {
-        // TODO 线程数量检查
-        threads.push_back(std::thread([&]() {
-            auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
-            auto block = ::ptraceProf::dumpReader::read_block(obj_s);
-            std::cout << file << std::endl;
-            for(const auto&[start_offset, end_time_pair] : add_pair) {
-                while(block.find(start_offset) == block.end()) {
-                    if(!obj_s) {
-                        break;
-                    }
-                    block = ::ptraceProf::dumpReader::read_block(obj_s);
-                }
-                if(!block.size()) {
-                    break;
-                }
-
-                for(const auto [end, times] : end_time_pair) {
-                    bool start = false;
-                    for(auto [addre, _] : block) {
-                        if(!start) {
-                            if(addre == start_offset) {
-                                start = true;
-                            } else {
-                                continue;
-                            }
-                        }
-                        if(no_run(std::get<1>(_))) {
-                            continue;
-                        }
-                        result[file][lltoString(addre)] += times;
-                        if(force_jump(std::get<1>(_))) {
-                            break;
-                        }
-                        if(end != -1 && may_jump(std::get<1>(_), end)) {
-                            break;
-                        }
-                    }
-                }
-            }
-        }));
-    }
-    for(auto &thread : threads) {
-        thread.join();
-    }
+std::map<std::string, std::map<std::string, int> > processProf::analize() const {
+    std::map<std::string, std::map<std::string, int> > result;
+    result.merge(ptraceProf::analize(this->file_map, this->direct_count));
     return result;
 }
 
-std::map<std::string, std::map<int, std::map<int, int> > >processProf::analize_trace() const {
-    // {file : {start_ip : {end_ip,time}}}
-    std::map<std::string, std::map<int, std::map<int, int> > > result;
-    for(const auto &[pid, order_result] : ans) {
-        for(const auto[start_ip, outs] : order_result) {
-            const auto [start_file, start_offset] = get_offset_and_file_by_ip(start_ip);
-            for(const auto[end_ip, times] : outs) {
-                const auto [end_file, end_offset] = get_offset_and_file_by_ip(end_ip);
-                if(start_file == end_file) {
-                    result[start_file][start_offset][end_offset] += times;
-                } else {
-                    result[start_file][start_offset][-1] += times;
-                }
-            }
-        }
-    }
-    return result;
-}
+
 
 void processProf::checkip(const ip_t ip, const pid_t pid) {
     auto[file, offset] = this->get_offset_and_file_by_ip(ip);
@@ -433,7 +367,7 @@ std::pair<std::unordered_map<ip_t, unsigned long long>, maps> dump_and_trace_sig
     return std::make_pair(result, map);
 }
 
-std::map<std::string, std::map<std::string, int> > analize(const std::unordered_map<ip_t, unsigned long long> &count, const maps &map) {
+std::map<std::string, std::map<std::string, int> > analize(const maps &map, const std::unordered_map<ip_t, unsigned long long> &count) {
     std::map<std::string, std::map<std::string, int> > result;
     for(const auto [ip, times] : count) {
         const auto[file, offset] = find_file_and_offset(map, ip);
@@ -442,4 +376,84 @@ std::map<std::string, std::map<std::string, int> > analize(const std::unordered_
     return result;
 }
 
+std::map<std::string, std::map<std::string, int> > analize(const maps &map,
+        const std::unordered_map<ip_t, unsigned long long> &count,
+        const std::unordered_map<ip_t, std::unordered_map<ip_t, long long> > &dir) {
+    std::map<std::string, std::map<std::string, int> > result;
+    for(const auto [ip, times] : count) {
+        const auto[file, offset] = find_file_and_offset(map, ip);
+        result[file][lltoString(offset)] = times;
+    }
+    return result;
+}
+
+
+std::map<std::string, std::map<std::string, int> > analize(const maps &map,
+        const std::unordered_map<ip_t, std::unordered_map<ip_t, long long> > &order_result) {
+    std::map<std::string, std::map<int, std::map<int, int> > > result;
+    for(const auto[start_ip, outs] : order_result) {
+        const auto [start_file, start_offset] = find_file_and_offset(map, start_ip);
+        for(const auto[end_ip, times] : outs) {
+            const auto [end_file, end_offset] = find_file_and_offset(map, end_ip);
+            if(start_file == end_file) {
+                result[start_file][start_offset][end_offset] += times;
+            } else {
+                result[start_file][start_offset][-1] += times;
+            }
+        }
+    }
+    return analize(result);
+}
+
+std::map<std::string, std::map<std::string, int> >analize(
+    const std::map<std::string, std::map<int, std::map<int, int> > > &ans) {
+    std::map<std::string, std::map<std::string, int> > result;
+    std::vector<std::thread> threads;
+    for(const auto&[file, add_pair] : ans) {
+        // TODO 线程数量检查
+        threads.push_back(std::thread([&]() {
+            auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
+            auto block = ::ptraceProf::dumpReader::read_block(obj_s);
+            std::cout << file << std::endl;
+            for(const auto&[start_offset, end_time_pair] : add_pair) {
+                while(block.find(start_offset) == block.end()) {
+                    if(!obj_s) {
+                        break;
+                    }
+                    block = ::ptraceProf::dumpReader::read_block(obj_s);
+                }
+                if(!block.size()) {
+                    break;
+                }
+
+                for(const auto [end, times] : end_time_pair) {
+                    bool start = false;
+                    for(auto [addre, _] : block) {
+                        if(!start) {
+                            if(addre == start_offset) {
+                                start = true;
+                            } else {
+                                continue;
+                            }
+                        }
+                        if(no_run(std::get<1>(_))) {
+                            continue;
+                        }
+                        result[file][lltoString(addre)] += times;
+                        if(force_jump(std::get<1>(_))) {
+                            break;
+                        }
+                        if(end != -1 && may_jump(std::get<1>(_), end)) {
+                            break;
+                        }
+                    }
+                }
+            }
+        }));
+    }
+    for(auto &thread : threads) {
+        thread.join();
+    }
+    return result;
+}
 }

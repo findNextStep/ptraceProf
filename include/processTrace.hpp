@@ -13,6 +13,7 @@
 
 namespace ptraceProf {
 using ip_t = unsigned long long;
+using count_t = unsigned long long;
 using maps = ::ptraceProf::mapsReader::result_t;
 using orders = ::ptraceProf::orderMap::result_t;
 using mem_range = ::ptraceProf::mapsReader::mem_range;
@@ -22,6 +23,8 @@ bool start_with(const std::string &base, const std::string &head);
 int force_jump(const std::string &info);
 
 unsigned int may_jump(const std::string &info);
+
+bool may_jump(const std::string &info, const unsigned long long next_addre);
 
 bool need_check(const std::string &info);
 
@@ -42,13 +45,20 @@ inline bool no_run(const std::string &info) {
     return !info.size();
 }
 
+
 std::pair<std::string, ip_t> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, const ip_t ip);
 
-std::pair<std::unordered_map<ip_t, unsigned long long>, maps> dump_and_trace_sign(const int pid);
+std::pair<std::unordered_map<ip_t, count_t>, maps> dump_and_trace_sign(const int pid);
 
-std::map<std::string, std::map<std::string, int> > analize(const std::unordered_map<ip_t, unsigned long long> &count, const maps &map);
+std::map<std::string, std::map<std::string, int> > analize(const maps &map, const std::unordered_map<ip_t, count_t> &count);
 
-static bool may_jump(const std::string &info, const unsigned long long next_addre);
+std::map<std::string, std::map<std::string, int> > analize(
+    const std::map<std::string, std::map<int, std::map<int, int> > > &ans);
+
+std::map<std::string, std::map<std::string, int> > analize(
+    const maps &map,
+    const std::unordered_map<ip_t, std::unordered_map<ip_t,  count_t> > &ans);
+
 class processProf {
 private:
 
@@ -57,7 +67,7 @@ private:
     // std::vector<std::map<unsigned long long ,unsigned int> >
     // > >;
 
-    std::unordered_map<ip_t, std::unordered_map<ip_t, std::unordered_map<ip_t, long long> > > ans;
+    std::unordered_map<pid_t, std::unordered_map<ip_t, std::unordered_map<ip_t, count_t> > > ans;
     // std::map<std::string, std::vector<mem_range> >
     maps file_map;
 
@@ -65,7 +75,7 @@ private:
     std::map<pid_t, ip_t> lastcommand;
 
     std::unordered_map<ip_t, bool> need_singlestep;
-    std::unordered_map<ip_t, int> direct_count;
+    std::unordered_map<ip_t, count_t> direct_count;
 public:
 
 
@@ -117,9 +127,8 @@ public:
         while(ptrace_once(pid)) {}
     }
 
-    std::map<std::string, std::map<int, std::map<int, int> > > analize_trace() const;
-
-    std::map<std::string, std::map<std::string, int> > analize(std::map<std::string, std::map<std::string, int> > result = {}) const;
+    std::map<std::string, std::map<std::string, int> > analize() const;
 };
+
 
 } // namespace ptraceProf

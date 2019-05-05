@@ -67,11 +67,11 @@ int main(int argc, char **argv) {
         auto [count, maps] = ::ptraceProf::dump_and_trace_sign(child);
         std::cout << "finish" << std::endl;
         if(final_result_file.value().size()) {
-            ans = ::ptraceProf::analize(count, maps);
+            ans = ::ptraceProf::analize(maps, count);
             std::ofstream of(final_result_file.value());
             of << ::nlohmann::json(ans).dump(4);
         } else {
-            ans = ::ptraceProf::analize(count, maps);
+            ans = ::ptraceProf::analize(maps, count);
             std::cerr << ::nlohmann::json(ans).dump(4);
         }
     } else {
