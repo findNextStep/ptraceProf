@@ -1,5 +1,7 @@
 #include "orderMap.hpp"
 
+#include <iostream>
+
 namespace ptraceProf {
 namespace orderMap {
 
