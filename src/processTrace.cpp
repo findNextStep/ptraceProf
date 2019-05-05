@@ -8,6 +8,7 @@
 #include <dirent.h> // opendir
 #include <unistd.h>
 #include <stdio.h>
+#include "readDump.hpp"
 
 namespace ptraceProf {
 
@@ -71,7 +72,7 @@ bool start_with(const std::string &base, const std::string &head) {
     return true;
 }
 
-int force_jump(const std::string &info) {
+ip_t force_jump(const std::string &info) {
     if(info.size() == 0) {
         return 0;
     }
@@ -86,7 +87,7 @@ int force_jump(const std::string &info) {
             if(info.size() <= 7) {
                 return -1;
             }
-            int adder = -1;
+            ip_t adder = -1;
             std::stringstream ss(info.substr(7));
             if(ss >> std::hex >> adder) {
                 return adder;
@@ -217,7 +218,7 @@ void processProf::reflush_map(const pid_t pid) {
     }
     for(const auto [file, ranges] : new_file_map) {
         if(!::ptraceProf::orderMap::file_exist(file)
-                && file_map.find(file) != file_map.end()) {
+                || file_map.find(file) != file_map.end()) {
             // 文件不存在或者文件已经处理过
             continue;
         }
@@ -273,6 +274,10 @@ bool processProf::ptrace_once(const pid_t pid) {
             checkip(ip, pid);
             if(lastcommand[pid]) {
                 this->ans[pid][lastcommand[pid]][ip] ++;
+                auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+                std::cerr << "from " << file << " " << lltoString(offset) << '\t';
+                std::tie(file, offset) = get_offset_and_file_by_ip(ip);
+                std::cerr << " to " << file << " " << lltoString(offset) << "\n";
             }
             lastcommand[pid] = ip;
             return true;
@@ -280,6 +285,8 @@ bool processProf::ptrace_once(const pid_t pid) {
     } else {
         if(lastcommand[pid]) {
             this->direct_count[lastcommand[pid]]++;
+            auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+            std::cerr << "count " << file << " " << lltoString(offset) << '\n';
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
@@ -302,8 +309,6 @@ std::map<std::string, std::map<std::string, count_t> > processProf::analize() co
     }
     return result;
 }
-
-
 
 void processProf::checkip(const ip_t ip, const pid_t pid) {
     auto[file, offset] = this->get_offset_and_file_by_ip(ip);
@@ -338,7 +343,6 @@ std::pair<std::string, ip_t> find_file_and_offset(const ::ptraceProf::mapsReader
     }
     return std::make_pair(std::string(), 0);
 }
-
 
 std::pair<std::unordered_map<ip_t, count_t>, maps> dump_and_trace_sign(const pid_t pid) {
     int status = -1;
@@ -390,7 +394,6 @@ std::map<std::string, std::map<std::string, count_t> > analize(const maps &map,
     result.merge(analize(map, dir));
     return result;
 }
-
 
 std::map<std::string, std::map<std::string, count_t> > analize(const maps &map,
         const std::unordered_map<ip_t, std::unordered_map<ip_t, count_t> > &order_result) {

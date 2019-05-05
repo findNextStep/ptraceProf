@@ -20,7 +20,7 @@ using mem_range = ::ptraceProf::mapsReader::mem_range;
 
 bool start_with(const std::string &base, const std::string &head);
 
-int force_jump(const std::string &info);
+ip_t force_jump(const std::string &info);
 
 ip_t may_jump(const std::string &info);
 
