@@ -22,9 +22,9 @@ bool start_with(const std::string &base, const std::string &head);
 
 int force_jump(const std::string &info);
 
-unsigned int may_jump(const std::string &info);
+ip_t may_jump(const std::string &info);
 
-bool may_jump(const std::string &info, const unsigned long long next_addre);
+bool may_jump(const std::string &info, const ip_t next_addre);
 
 bool need_check(const std::string &info);
 
@@ -46,18 +46,23 @@ inline bool no_run(const std::string &info) {
 }
 
 
-std::pair<std::string, ip_t> find_file_and_offset(const ::ptraceProf::mapsReader::result_t &file_map, const ip_t ip);
+std::pair<std::string, ip_t> find_file_and_offset(const maps &file_map, const ip_t ip);
 
 std::pair<std::unordered_map<ip_t, count_t>, maps> dump_and_trace_sign(const int pid);
 
-std::map<std::string, std::map<std::string, int> > analize(const maps &map, const std::unordered_map<ip_t, count_t> &count);
+std::map<std::string, std::map<std::string, count_t> > analize(const maps &map, const std::unordered_map<ip_t, count_t> &count);
 
-std::map<std::string, std::map<std::string, int> > analize(
-    const std::map<std::string, std::map<int, std::map<int, int> > > &ans);
+std::map<std::string, std::map<std::string, count_t> >analize(
+    const std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > &ans);
 
-std::map<std::string, std::map<std::string, int> > analize(
+std::map<std::string, std::map<std::string, count_t> > analize(
     const maps &map,
     const std::unordered_map<ip_t, std::unordered_map<ip_t,  count_t> > &ans);
+
+
+std::map<std::string, std::map<std::string, count_t> > analize(const maps &map,
+        const std::unordered_map<ip_t, count_t> &count,
+        const std::unordered_map<ip_t, std::unordered_map<ip_t, count_t> > &dir);
 
 class processProf {
 private:
@@ -79,11 +84,11 @@ private:
 public:
 
 
-    static std::set<unsigned int> update_singlestep_map(const std::map< unsigned int, std::tuple <
+    static std::set<ip_t> update_singlestep_map(const std::map< unsigned int, std::tuple <
             std::vector<unsigned short>,
             std::string > > &block);
 
-    static std::set<unsigned int> update_singlestep_map(const std::string &file);
+    static std::set<ip_t> update_singlestep_map(const std::string &file);
 
 
 protected:
@@ -92,19 +97,8 @@ protected:
     bool check_process(const pid_t pid);
     inline bool singleblock(const pid_t pid);
     inline bool singlestep(const pid_t pid);
-    bool process_pause(const int pid);
-    bool procsss_start(const int pid);
-
-
-    auto find_range(const ip_t pid, const ip_t ip) {
-        for(auto it = this->pid_order[pid].begin(); it != pid_order[pid].end(); ++it) {
-            auto &range = std::get<1>(*it);
-            if(in_range(ip, range)) {
-                return it;
-            }
-        }
-        return pid_order[pid].end();
-    }
+    bool process_pause(const pid_t pid);
+    bool procsss_start(const pid_t pid);
 
     bool ptrace_once(const pid_t pid);
 
@@ -127,7 +121,7 @@ public:
         while(ptrace_once(pid)) {}
     }
 
-    std::map<std::string, std::map<std::string, int> > analize() const;
+    std::map<std::string, std::map<std::string, count_t> > analize() const;
 };
 
 

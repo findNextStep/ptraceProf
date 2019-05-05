@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
     }
     ::ptraceProf::processProf pp;
 
-    std::map<std::string, std::map<std::string, int> > ans;
+    std::map<std::string, std::map<std::string, ::ptraceProf::count_t> > ans;
     if(single_step.value()) {
         std::cout << "\tin single step" << std::endl;
         auto [count, maps] = ::ptraceProf::dump_and_trace_sign(child);
