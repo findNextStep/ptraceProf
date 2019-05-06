@@ -4,7 +4,7 @@
 #include <nlohmann/json.hpp>
 
 int main(const int argc, char *argv[]) {
-    std::string step_file, final_result_file;
+    std::string final_result_file;
     std::string addre_count_file, function_count_file;
     bool single_step = false;
     const std::vector<std::string> args(argv, argv + argc);
@@ -16,8 +16,6 @@ int main(const int argc, char *argv[]) {
         } else if(arg == "-e" || arg == "--exec") {
             last_command_pos = i + 1;
             break;
-        } else if(arg == "-s" || arg == "--step-file") {
-            step_file = args[++i];
         } else if(arg == "-f" || arg == "--final-file") {
             final_result_file = args[++i];
         } else if(arg == "--addre-file") {
@@ -43,9 +41,6 @@ int main(const int argc, char *argv[]) {
     // in tracer porcess
     std::cout << "child_pid == " << child;
     // command line value check
-    if(step_file.size()) {
-        freopen(step_file.c_str(), "w", stderr);
-    }
     ::ptraceProf::processProf pp;
 
     std::map<std::string, std::map<std::string, ::ptraceProf::count_t> > ans;
@@ -80,7 +75,7 @@ int main(const int argc, char *argv[]) {
             of << name << '\t' << time << '\n';
         }
     }
-    if (addre_count_file.size()){
+    if(addre_count_file.size()) {
         std::ofstream of(addre_count_file);
         for(auto [name, time] : ::ptraceProf::order_output(ans)) {
             of << name << '\t' << time << '\n';
