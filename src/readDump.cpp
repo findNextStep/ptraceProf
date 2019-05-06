@@ -60,6 +60,25 @@ result_t read_block(pipstream &is) {
     return result;
 }
 
+std::pair<std::string,result_t> read_block_with_func_name(pipstream &is) {
+    std::string line;
+    std::getline(is, line);
+    std::string func_name = try_read_header(line);
+    result_t result;
+    while(func_name.size()) {
+        std::string line;
+        if(!std::getline(is, line)){
+            break;
+        }
+        auto order = deal_line_order(line);
+        if(order.address == -1) {
+            break;
+        }
+        result[order.address] = std::make_tuple(order.order, order.info);
+    }
+    return std::make_pair(func_name,result);
+}
+
 result_t read_objdump(pipstream &is) {
     result_t result;
     while(is) {

@@ -31,6 +31,8 @@ std::string try_read_header(const std::string &line);
 
 result_t read_block(pipstream &is);
 
+std::pair<std::string,result_t> read_block_with_func_name(pipstream &is);
+
 result_t read_objdump(pipstream &is);
 result_t read_objdump(pipstream &&is);
 
