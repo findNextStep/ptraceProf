@@ -4,9 +4,9 @@
 namespace ptraceProf {
 namespace dumpReader {
 
- std::vector<unsigned short> get_order(std::istream &&ss) {
+ order_t get_order(std::istream &&ss) {
     short i;
-    std::vector<unsigned short> result;
+    order_t result;
     result.reserve(8);
     while(ss >> std::hex >> i) {
         result.push_back(i);
@@ -23,7 +23,7 @@ order_map deal_line_order(const std::string &line) {
         ss.get(); // skip ':'
         char a[24];
         ss.readsome(a, 23);
-        std::vector<unsigned short>order(get_order(std::stringstream(a)));
+        order_t order(get_order(std::stringstream(a)));
         std::string resut;
         std::getline(ss, resut);
         return order_map{i, order, resut};

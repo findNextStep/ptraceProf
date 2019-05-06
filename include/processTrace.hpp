@@ -3,6 +3,8 @@
 #include "pipe.hpp"
 #include "orderMap.hpp"
 #include "mapsReader.hpp"
+#include "readDump.hpp"
+
 
 #include <map>
 #include <set>
@@ -14,6 +16,9 @@
 namespace ptraceProf {
 using ip_t = unsigned long long;
 using count_t = unsigned long long;
+using direct_count_t = std::unordered_map<ip_t, count_t>;
+using block_count_t = std::unordered_map<ip_t, direct_count_t >;
+using result_t = std::map<std::string, std::map<std::string, count_t> >;
 using maps = ::ptraceProf::mapsReader::result_t;
 using orders = ::ptraceProf::orderMap::result_t;
 using mem_range = ::ptraceProf::mapsReader::mem_range;
@@ -49,21 +54,17 @@ bool is_dynamic_file(const std::string &file);
 
 std::pair<std::string, ip_t> find_file_and_offset(const maps &file_map, const ip_t ip);
 
-std::pair<std::unordered_map<ip_t, count_t>, maps> dump_and_trace_sign(const int pid);
+std::pair<direct_count_t, maps> dump_and_trace_sign(const int pid);
 
-std::map<std::string, std::map<std::string, count_t> > analize(const maps &map, const std::unordered_map<ip_t, count_t> &count);
+result_t analize(const maps &map, const direct_count_t &count);
 
-std::map<std::string, std::map<std::string, count_t> >analize(
+result_t analize(
     const std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > &ans);
 
-std::map<std::string, std::map<std::string, count_t> > analize(
-    const maps &map,
-    const std::unordered_map<ip_t, std::unordered_map<ip_t,  count_t> > &ans);
+result_t analize( const maps &map, const block_count_t &ans);
 
 
-std::map<std::string, std::map<std::string, count_t> > analize(const maps &map,
-        const std::unordered_map<ip_t, count_t> &count,
-        const std::unordered_map<ip_t, std::unordered_map<ip_t, count_t> > &dir);
+result_t analize(const maps &map, const direct_count_t &count, const block_count_t &dir);
 
 class processProf {
 private:
@@ -73,7 +74,7 @@ private:
     // std::vector<std::map<unsigned long long ,unsigned int> >
     // > >;
 
-    std::unordered_map<pid_t, std::unordered_map<ip_t, std::unordered_map<ip_t, count_t> > > ans;
+    std::unordered_map<pid_t, block_count_t > ans;
     // std::map<std::string, std::vector<mem_range> >
     maps file_map;
 
@@ -81,13 +82,11 @@ private:
     std::map<pid_t, ip_t> lastcommand;
 
     std::unordered_map<ip_t, bool> need_singlestep;
-    std::unordered_map<ip_t, count_t> direct_count;
+    direct_count_t direct_count;
 public:
 
 
-    static std::set<ip_t> update_singlestep_map(const std::map< unsigned int, std::tuple <
-            std::vector<unsigned short>,
-            std::string > > &block);
+    static std::set<ip_t> update_singlestep_map(const std::map< unsigned int, std::tuple < order_t, std::string > > &block);
 
     static std::set<ip_t> update_singlestep_map(const std::string &file);
 
@@ -122,7 +121,7 @@ public:
         while(ptrace_once(pid)) {}
     }
 
-    std::map<std::string, std::map<std::string, count_t> > analize() const;
+    result_t analize() const;
 };
 
 

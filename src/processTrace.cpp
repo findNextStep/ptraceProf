@@ -8,7 +8,6 @@
 #include <dirent.h> // opendir
 #include <unistd.h>
 #include <stdio.h>
-#include "readDump.hpp"
 
 namespace ptraceProf {
 
@@ -151,7 +150,7 @@ bool may_jump(const std::string &info, const ip_t next_addre) {
 }
 
 std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, std::tuple <
-        std::vector<unsigned short>,
+        order_t,
         std::string > > &block) {
     std::set<ip_t> ans;
     if(block.size()) {
@@ -304,7 +303,7 @@ bool processProf::ptrace_once(const pid_t pid) {
     return false;
 }
 
-std::map<std::string, std::map<std::string, count_t> > processProf::analize() const {
+result_t processProf::analize() const {
     auto result = ptraceProf::analize(this->file_map, this->direct_count);
     for(const auto&[ip, dir] : ans) {
         for(auto [file, add_count_pair] : ptraceProf::analize(this->file_map, dir)) {
@@ -350,13 +349,13 @@ std::pair<std::string, ip_t> find_file_and_offset(const ::ptraceProf::mapsReader
     return std::make_pair(std::string(), 0);
 }
 
-std::pair<std::unordered_map<ip_t, count_t>, maps> dump_and_trace_sign(const pid_t pid) {
+std::pair<direct_count_t, maps> dump_and_trace_sign(const pid_t pid) {
     int status = -1;
     wait(&status);
     maps map = ::ptraceProf::mapsReader::readMaps(pid);
     //{filename:{addre(hex),time}}
-    std::unordered_map<ip_t, count_t> result;
-    std::map<std::string, std::map<std::string, count_t> > ans;
+    direct_count_t result;
+    result_t ans;
     while(1) {
         ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
         if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
@@ -383,8 +382,8 @@ std::pair<std::unordered_map<ip_t, count_t>, maps> dump_and_trace_sign(const pid
     return std::make_pair(result, map);
 }
 
-std::map<std::string, std::map<std::string, count_t> > analize(const maps &map, const std::unordered_map<ip_t, count_t> &count) {
-    std::map<std::string, std::map<std::string, count_t> > result;
+result_t analize(const maps &map, const direct_count_t &count) {
+    result_t result;
     for(const auto [ip, times] : count) {
         const auto[file, offset] = find_file_and_offset(map, ip);
         result[file][lltoString(offset)] = times;
@@ -392,17 +391,17 @@ std::map<std::string, std::map<std::string, count_t> > analize(const maps &map, 
     return result;
 }
 
-std::map<std::string, std::map<std::string, count_t> > analize(const maps &map,
-        const std::unordered_map<ip_t, count_t> &count,
-        const std::unordered_map<ip_t, std::unordered_map<ip_t, count_t> > &dir) {
-    std::map<std::string, std::map<std::string, count_t> > result;
+result_t analize(const maps &map,
+        const direct_count_t &count,
+        const block_count_t &dir) {
+    result_t result;
     result.merge(analize(map, count));
     result.merge(analize(map, dir));
     return result;
 }
 
-std::map<std::string, std::map<std::string, count_t> > analize(const maps &map,
-        const std::unordered_map<ip_t, std::unordered_map<ip_t, count_t> > &order_result) {
+result_t analize(const maps &map,
+        const block_count_t &order_result) {
     std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > result;
     for(const auto[start_ip, outs] : order_result) {
         const auto [start_file, start_offset] = find_file_and_offset(map, start_ip);
@@ -418,9 +417,9 @@ std::map<std::string, std::map<std::string, count_t> > analize(const maps &map,
     return analize(result);
 }
 
-std::map<std::string, std::map<std::string, count_t> >analize(
+result_t analize(
     const std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > &ans) {
-    std::map<std::string, std::map<std::string, count_t> > result;
+    result_t result;
     std::vector<std::thread> threads;
     for(const auto&[file, add_pair] : ans) {
         // TODO 线程数量检查

@@ -9,16 +9,19 @@
 #include <istream>
 
 namespace ptraceProf {
+
+using order_t = std::vector<unsigned short>;
+
 namespace dumpReader {
 
 using pipstream = std::stringstream;
-using result_t = std::map< unsigned int, std::tuple < std::vector<unsigned short>, std::string > >;
+using result_t = std::map< unsigned int, std::tuple < order_t, std::string > >;
 
-std::vector<unsigned short>get_order(std::istream &&ss);
+order_t get_order(std::istream &&ss);
 
 struct order_map {
     int address;
-    std::vector<unsigned short> order;
+    order_t order;
     std::string info;
 };
 
