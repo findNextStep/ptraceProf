@@ -50,11 +50,6 @@ int main(const int argc, char *argv[]) {
         std::cout << "finish" << std::endl;
         if(final_result_file.size()) {
             ans = ::ptraceProf::analize(maps, count);
-            std::ofstream of(final_result_file);
-            of << ::nlohmann::json(ans).dump(4);
-        } else {
-            ans = ::ptraceProf::analize(maps, count);
-            std::cerr << ::nlohmann::json(ans).dump(4);
         }
     } else {
         std::cout << "\tin block step" << std::endl;
@@ -62,12 +57,11 @@ int main(const int argc, char *argv[]) {
         std::cout << "finish" << std::endl;
         if(final_result_file.size()) {
             ans = pp.analize();
-            std::ofstream of(final_result_file);
-            of << ::nlohmann::json(ans).dump(4);
-        } else {
-            ans = pp.analize();
-            std::cerr << ::nlohmann::json(ans).dump(4);
         }
+    }
+    if(final_result_file.size()) {
+        std::ofstream of(final_result_file);
+        of << ::nlohmann::json(ans).dump(4);
     }
     if(function_count_file.size()) {
         std::ofstream of(function_count_file);
