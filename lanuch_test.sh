@@ -8,7 +8,7 @@ rm $ans_file
 rm $addre_file
 rm $func_file
 
-x-terminal-emulator -x "zsh -c \"./build/main --single-step --step-file $step_file --final-file $ans_file --addre-file $addre_file --func-file $func_file -e $@\" "&
+x-terminal-emulator -x "zsh -c \"./build/main --single-step --final-file $ans_file --addre-file $addre_file --func-file $func_file -e $@\" "&
 
 step_file="test.block.step"
 ans_file="test.block.json"
@@ -20,4 +20,4 @@ rm $ans_file
 rm $addre_file
 rm $func_file
 
- x-terminal-emulator -x "zsh -c \"./build/main               --step-file $step_file --final-file $ans_file --addre-file $addre_file --func-file $func_file -e $@\"" &
+ x-terminal-emulator -x "zsh -c \"./build/main               --final-file $ans_file --addre-file $addre_file --func-file $func_file -e $@\"" &
