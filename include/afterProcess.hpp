@@ -40,8 +40,11 @@ std::map<std::string, count_t> order_output_function(const result_t &ans) {
                 dumpReader::read_block_with_func_name(dumps);
             if(func_name.size()) {
                 for(auto [addre, _] : block) {
-                    result[func_name] +=
-                        offset_to_times[lltoString(addre)];
+                    const auto times = offset_to_times[lltoString(addre)];
+                    if(times) {
+                        result[func_name] +=
+                            offset_to_times[lltoString(addre)];
+                    }
                 }
             }
         }
