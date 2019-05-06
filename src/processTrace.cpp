@@ -279,10 +279,10 @@ bool processProf::ptrace_once(const pid_t pid) {
             checkip(ip, pid);
             if(lastcommand[pid]) {
                 this->ans[pid][lastcommand[pid]][ip] ++;
-                auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
-                std::cerr << "from " << file << " " << lltoString(offset) << '\t';
-                std::tie(file, offset) = get_offset_and_file_by_ip(ip);
-                std::cerr << " to " << file << " " << lltoString(offset) << "\n";
+                // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+                // std::cerr << "from " << file << " " << lltoString(offset) << '\t';
+                // std::tie(file, offset) = get_offset_and_file_by_ip(ip);
+                // std::cerr << " to " << file << " " << lltoString(offset) << "\n";
             }
             lastcommand[pid] = ip;
             return true;
@@ -290,8 +290,8 @@ bool processProf::ptrace_once(const pid_t pid) {
     } else {
         if(lastcommand[pid]) {
             this->direct_count[lastcommand[pid]]++;
-            auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
-            std::cerr << "count " << file << " " << lltoString(offset) << '\n';
+            // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+            // std::cerr << "count " << file << " " << lltoString(offset) << '\n';
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
@@ -371,13 +371,13 @@ std::pair<direct_count_t, maps> dump_and_trace_sign(const pid_t pid) {
         auto [file, offset] = find_file_and_offset(map, ip);
         if(file == "") {
             map = ::ptraceProf::mapsReader::readMaps(pid);
-            std::tie(file, offset) = find_file_and_offset(map, ip);
+            // std::tie(file, offset) = find_file_and_offset(map, ip);
         }
-        ans[file][lltoString(offset)]++;
+        // ans[file][lltoString(offset)]++;
 
         // struct user_regs_struct regs;
         // ptrace(PTRACE_GETREGS,pid,nullptr,&regs);
-        std::cerr << lltoString(offset) << '\t' << file << '\n';
+        // std::cerr << lltoString(offset) << '\t' << file << '\n';
     }
     return std::make_pair(result, map);
 }
