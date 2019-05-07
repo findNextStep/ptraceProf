@@ -177,6 +177,8 @@ std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, s
                     for(auto point : has) {
                         ans.insert(point);
                     }
+                    // 清除块路径，避免重复标记
+                    has.clear();
                 } else {
                     outs.insert(out);
                 }
@@ -185,6 +187,8 @@ std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, s
                 for(auto point : has) {
                     ans.insert(point);
                 }
+                // 清除块路径，避免重复标记
+                has.clear();
                 ans.insert(addre);
             }
         }
@@ -222,16 +226,16 @@ void processProf::reflush_map(const pid_t pid) {
             continue;
         }
         const auto list = update_singlestep_map(file);
-        for(const auto addre : list) {
-            if(is_dynamic_file(file)) {
+        if(is_dynamic_file(file)) {
+            for(const auto addre : list) {
                 for(const auto range : ranges) {
                     if(addre > range.offset && addre - range.offset + range.start < range.end) {
-                        if(is_dynamic_file(file)) {
-                            need_singlestep[addre - range.offset + range.start] = true;
-                        }
+                        need_singlestep[addre - range.offset + range.start] = true;
                     }
                 }
-            } else {
+            }
+        } else {
+            for(const auto addre : list) {
                 need_singlestep[addre] = true;
             }
         }
@@ -392,8 +396,8 @@ result_t analize(const maps &map, const direct_count_t &count) {
 }
 
 result_t analize(const maps &map,
-        const direct_count_t &count,
-        const block_count_t &dir) {
+                 const direct_count_t &count,
+                 const block_count_t &dir) {
     result_t result;
     result.merge(analize(map, count));
     result.merge(analize(map, dir));
@@ -401,7 +405,7 @@ result_t analize(const maps &map,
 }
 
 result_t analize(const maps &map,
-        const block_count_t &order_result) {
+                 const block_count_t &order_result) {
     std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > result;
     for(const auto[start_ip, outs] : order_result) {
         const auto [start_file, start_offset] = find_file_and_offset(map, start_ip);
