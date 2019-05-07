@@ -287,7 +287,7 @@ bool processProf::ptrace_once(const pid_t pid) {
             auto ip = get_ip(pid);
             checkip(ip, pid);
             if(lastcommand[pid]) {
-                this->ans[pid][lastcommand[pid]][ip] ++;
+                ++this->ans[pid][lastcommand[pid]][ip];
                 // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
                 // std::cerr << "from " << file << " " << lltoString(offset) << '\t';
                 // std::tie(file, offset) = get_offset_and_file_by_ip(ip);
@@ -298,7 +298,7 @@ bool processProf::ptrace_once(const pid_t pid) {
         }
     } else {
         if(lastcommand[pid]) {
-            this->direct_count[lastcommand[pid]]++;
+            ++this->direct_count[lastcommand[pid]];
             // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
             // std::cerr << "count " << file << " " << lltoString(offset) << '\n';
         }
@@ -376,7 +376,7 @@ std::pair<direct_count_t, maps> dump_and_trace_sign(const pid_t pid) {
             break;
         }
         const auto ip = get_ip(pid);
-        result[ip]++;
+        ++result[ip];
         auto [file, offset] = find_file_and_offset(map, ip);
         if(file == "") {
             map = ::ptraceProf::mapsReader::readMaps(pid);
