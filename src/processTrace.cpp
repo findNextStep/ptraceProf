@@ -312,10 +312,10 @@ bool processProf::ptrace_once(const pid_t pid) {
     return false;
 }
 
-result_t processProf::analize() const {
-    auto result = ptraceProf::analize(this->file_map, this->direct_count);
+result_t processProf::analize_count() const {
+    auto result = ptraceProf::analize_count(this->file_map, this->direct_count);
     for(const auto&[ip, dir] : ans) {
-        for(auto [file, add_count_pair] : ptraceProf::analize(this->file_map, dir)) {
+        for(auto [file, add_count_pair] : ptraceProf::analize_count(this->file_map, dir)) {
             for(auto [addre, count] : add_count_pair) {
                 result[file][addre] += count;
             }
@@ -391,7 +391,7 @@ std::pair<direct_count_t, maps> dump_and_trace_sign(const pid_t pid) {
     return std::make_pair(result, map);
 }
 
-result_t analize(const maps &map, const direct_count_t &count) {
+result_t analize_count(const maps &map, const direct_count_t &count) {
     result_t result;
     for(const auto [ip, times] : count) {
         const auto[file, offset] = find_file_and_offset(map, ip);
@@ -400,16 +400,16 @@ result_t analize(const maps &map, const direct_count_t &count) {
     return result;
 }
 
-result_t analize(const maps &map,
+result_t analize_count(const maps &map,
                  const direct_count_t &count,
                  const block_count_t &dir) {
     result_t result;
-    result.merge(analize(map, count));
-    result.merge(analize(map, dir));
+    result.merge(analize_count(map, count));
+    result.merge(analize_count(map, dir));
     return result;
 }
 
-result_t analize(const maps &map,
+result_t analize_count(const maps &map,
                  const block_count_t &order_result) {
     std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > result;
     for(const auto[start_ip, outs] : order_result) {
@@ -423,10 +423,10 @@ result_t analize(const maps &map,
             }
         }
     }
-    return analize(result);
+    return analize_count(result);
 }
 
-result_t analize(
+result_t analize_count(
     const std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > &ans) {
     result_t result;
     std::vector<std::thread> threads;

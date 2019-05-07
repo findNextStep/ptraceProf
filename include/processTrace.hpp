@@ -174,7 +174,7 @@ std::pair<direct_count_t, maps> dump_and_trace_sign(const int pid);
  *
  * @return result
  */
-result_t analize(const maps &map, const direct_count_t &count);
+result_t analize_count(const maps &map, const direct_count_t &count);
 
 /**
  * @brief analize change block result to result
@@ -183,7 +183,7 @@ result_t analize(const maps &map, const direct_count_t &count);
  *
  * @return result
  */
-result_t analize(const std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > &ans);
+result_t analize_count(const std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > &ans);
 
 /**
  * @brief analize analize block result
@@ -193,7 +193,7 @@ result_t analize(const std::map<std::string, std::map<ip_t, std::map<ip_t, count
  *
  * @return result
  */
-result_t analize( const maps &map, const block_count_t &ans);
+result_t analize_count( const maps &map, const block_count_t &ans);
 
 
 /**
@@ -205,7 +205,7 @@ result_t analize( const maps &map, const block_count_t &ans);
  *
  * @return result
  */
-result_t analize(const maps &map, const direct_count_t &count, const block_count_t &dir);
+result_t analize_count(const maps &map, const direct_count_t &count, const block_count_t &dir);
 
 class processProf {
 private:
@@ -262,7 +262,7 @@ public:
         while(ptrace_once(pid)) {}
     }
 
-    result_t analize() const;
+    result_t analize_count() const;
 };
 
 

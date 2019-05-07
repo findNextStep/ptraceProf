@@ -49,14 +49,14 @@ int main(const int argc, char *argv[]) {
         auto [count, maps] = ::ptraceProf::dump_and_trace_sign(child);
         std::cout << "finish" << std::endl;
         if(final_result_file.size()) {
-            ans = ::ptraceProf::analize(maps, count);
+            ans = ::ptraceProf::analize_count(maps, count);
         }
     } else {
         std::cout << "\tin block step" << std::endl;
         pp.trace(child);
         std::cout << "finish" << std::endl;
         if(final_result_file.size()) {
-            ans = pp.analize();
+            ans = pp.analize_count();
         }
     }
     if(final_result_file.size()) {
