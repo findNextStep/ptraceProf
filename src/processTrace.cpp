@@ -116,24 +116,29 @@ ip_t may_jump(const std::string &info) {
     if(start_with(info, "bnd ")) {
         return may_jump(info.substr(4));
     }
-    const std::vector<std::string> may_jump_list = {
-        "jo", "jno", "jc", "jnc", "jz", "je", "jnz", "jne", "js", "jns",
-        "jp", "jpe", "jnp", "jpo", "jb", "jnae", "jnb", "jae", "jbe", "jna",
-        "jnbe", "ja", "jl", "jnge", "jnl", "jge", "jle", "jng", "jnle", "jg"
-    };
+    // const std::vector<std::string> may_jump_list = {
+        // "jo", "jno", "jc", "jnc", "jz", "je", "jnz", "jne", "js", "jns",
+        // "jp", "jpe", "jnp", "jpo", "jb", "jnae", "jnb", "jae", "jbe", "jna",
+        // "jnbe", "ja", "jl", "jnge", "jnl", "jge", "jle", "jng", "jnle", "jg"
+    // };
     if(info[0] != 'j') {
         return 0;
+    }else{
+        std::stringstream ss(info);
+        std::string cmd;
+        ip_t addre = 0;
+        ss>>cmd>>std::hex >> addre;
+        return addre;
     }
-    for(const std::string &front : may_jump_list) {
-        if(start_with(info, front)) {
-            std::stringstream ss(info.substr(front.size() + 1));
-            std::string s = ss.str();
-            ip_t addr = 0;
-            ss >> std::hex >> addr;
-            return addr;
-        }
-    }
-    return 0;
+    // for(const std::string &front : may_jump_list) {
+        // if(start_with(info, front)) {
+            // std::stringstream ss(info.substr(front.size() + 1));
+            // std::string s = ss.str();
+            // ip_t addr = 0;
+            // ss >> std::hex >> addr;
+            // return addr;
+        // }
+    // }
 }
 
 std::string lltoString(long long t) {
