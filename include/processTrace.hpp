@@ -239,7 +239,7 @@ protected:
     inline bool singleblock(const pid_t pid);
     inline bool singlestep(const pid_t pid);
     bool process_pause(const pid_t pid);
-    bool procsss_start(const pid_t pid);
+    bool process_start(const pid_t pid);
 
     bool ptrace_once(const pid_t pid);
 
@@ -258,9 +258,7 @@ protected:
     }
 
 public:
-    void trace(const pid_t pid) {
-        while(ptrace_once(pid)) {}
-    }
+    void trace(const pid_t pid);
 
     result_t analize_count() const;
 };
