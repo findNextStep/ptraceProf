@@ -27,7 +27,7 @@ int main(const int argc, char *argv[]) {
             return 1;
         }
     }
-    int child = fork();
+    const int child = fork();
     if(child == 0) {
         // in tracee process
         ::ptraceProf::ptraceThisProcess();

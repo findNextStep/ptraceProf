@@ -8,12 +8,14 @@
 #include <dirent.h> // opendir
 #include <unistd.h>
 #include <stdio.h>
+#include <errno.h>
+#include <string.h>
 
 namespace ptraceProf {
 
 
 void ptraceThisProcess() {
-    ptrace(PTRACE_TRACEME, 0, 0, 0);
+    ptrace(PTRACE_TRACEME, getpid(), 0, 0);
 }
 
 ip_t get_ip(const pid_t pid) {
@@ -43,8 +45,10 @@ bool processProf::singlestep(const pid_t pid) {
 }
 
 bool processProf::process_pause(const pid_t pid) {
+    lastcommand[pid] = 0;
     if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
-        fprintf(stderr, "process %d cannot attach\n", pid);
+        std::cerr << "fail to attach pid :" << pid << '\t';
+        std::cerr << strerror(errno) << std::endl;;
         return check_process(pid);
     }
     int status;
@@ -54,12 +58,14 @@ bool processProf::process_pause(const pid_t pid) {
     return true;
 }
 
-bool processProf::procsss_start(const pid_t pid) {
+bool processProf::process_start(const pid_t pid) {
     lastcommand[pid] = 0;
     if(ptrace(PTRACE_DETACH, pid, 0, 0)) {
-        fprintf(stderr, "fail to detach pid :%d\n", pid);
+        std::cerr << "fail to detach pid :" << pid << '\t';
+        std::cerr << strerror(errno) << std::endl;;
         return check_process(pid);
     }
+    return true;
 }
 
 bool start_with(const std::string &base, const std::string &head) {
@@ -117,27 +123,27 @@ ip_t may_jump(const std::string &info) {
         return may_jump(info.substr(4));
     }
     // const std::vector<std::string> may_jump_list = {
-        // "jo", "jno", "jc", "jnc", "jz", "je", "jnz", "jne", "js", "jns",
-        // "jp", "jpe", "jnp", "jpo", "jb", "jnae", "jnb", "jae", "jbe", "jna",
-        // "jnbe", "ja", "jl", "jnge", "jnl", "jge", "jle", "jng", "jnle", "jg"
+    // "jo", "jno", "jc", "jnc", "jz", "je", "jnz", "jne", "js", "jns",
+    // "jp", "jpe", "jnp", "jpo", "jb", "jnae", "jnb", "jae", "jbe", "jna",
+    // "jnbe", "ja", "jl", "jnge", "jnl", "jge", "jle", "jng", "jnle", "jg"
     // };
     if(info[0] != 'j') {
         return 0;
-    }else{
+    } else {
         std::stringstream ss(info);
         std::string cmd;
         ip_t addre = 0;
-        ss>>cmd>>std::hex >> addre;
+        ss >> cmd >> std::hex >> addre;
         return addre;
     }
     // for(const std::string &front : may_jump_list) {
-        // if(start_with(info, front)) {
-            // std::stringstream ss(info.substr(front.size() + 1));
-            // std::string s = ss.str();
-            // ip_t addr = 0;
-            // ss >> std::hex >> addr;
-            // return addr;
-        // }
+    // if(start_with(info, front)) {
+    // std::stringstream ss(info.substr(front.size() + 1));
+    // std::string s = ss.str();
+    // ip_t addr = 0;
+    // ss >> std::hex >> addr;
+    // return addr;
+    // }
     // }
 }
 
@@ -288,28 +294,65 @@ bool processProf::ptrace_once(const pid_t pid) {
             checkip(ip, pid);
             if(lastcommand[pid]) {
                 ++this->ans[pid][lastcommand[pid]][ip];
-                // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
-                // std::cerr << "from " << file << " " << lltoString(offset) << '\t';
-                // std::tie(file, offset) = get_offset_and_file_by_ip(ip);
-                // std::cerr << " to " << file << " " << lltoString(offset) << "\n";
+                auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+                std::cerr << "from " << file << " " << lltoString(offset) << '\t';
+                std::tie(file, offset) = get_offset_and_file_by_ip(ip);
+                std::cerr << " to " << file << " " << lltoString(offset) << std::endl;
             }
             lastcommand[pid] = ip;
             return true;
+        }else{
+            return false;
         }
     } else {
         if(lastcommand[pid]) {
             ++this->direct_count[lastcommand[pid]];
-            // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
-            // std::cerr << "count " << file << " " << lltoString(offset) << '\n';
+            auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+            std::cerr << "count " << file << " " << lltoString(offset) << std::endl;
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
             checkip(ip, pid);
             lastcommand[pid] = ip;
             return true;
+        }else{
+            return false;
         }
     }
     return false;
+}
+
+void processProf::trace(const pid_t pid) {
+    ptrace_once(pid);
+    if(!this->process_start(pid)) {
+        return;
+    }
+    while(true) {
+        std::vector<std::thread> threads;
+        const auto pids = ListThreads(pid);
+        if(pids.empty()) {
+            return;
+        }
+        std::cout << "once" << std::endl;
+        for(const auto pid : pids) {
+            threads.push_back(std::thread([pid, this]() {
+                if(!this->process_pause(pid)) {
+                    return;
+                }
+                for(int i = 0; i < 10; ++i) {
+                    if(ptrace_once(pid)) {
+                        return;
+                    }
+                }
+                if(!this->process_start(pid)) {
+                    return;
+                }
+            }));
+        }
+        for(auto &thread : threads) {
+            thread.join();
+        }
+    }
 }
 
 result_t processProf::analize_count() const {
@@ -401,8 +444,8 @@ result_t analize_count(const maps &map, const direct_count_t &count) {
 }
 
 result_t analize_count(const maps &map,
-                 const direct_count_t &count,
-                 const block_count_t &dir) {
+                       const direct_count_t &count,
+                       const block_count_t &dir) {
     result_t result;
     result.merge(analize_count(map, count));
     result.merge(analize_count(map, dir));
@@ -410,7 +453,7 @@ result_t analize_count(const maps &map,
 }
 
 result_t analize_count(const maps &map,
-                 const block_count_t &order_result) {
+                       const block_count_t &order_result) {
     std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > result;
     for(const auto[start_ip, outs] : order_result) {
         const auto [start_file, start_offset] = find_file_and_offset(map, start_ip);
