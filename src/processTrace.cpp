@@ -323,39 +323,33 @@ bool processProf::ptrace_once(const pid_t pid) {
 }
 
 void processProf::trace(const pid_t pid) {
-    // ptrace_once(pid);
-    // if(!this->process_start(pid)) {
-    //     return;
-    // }
-    // while(true) {
-    //     std::vector<std::thread> threads;
-    //     const auto pids = ListThreads(pid);
-    //     if(pids.empty()) {
-    //         return;
-    //     }
-    //     for(const auto pid : pids) {
-    //         threads.push_back(std::thread([pid, this]() {
-    //             if(!this->process_pause(pid)) {
-    //                 return;
-    //             }
-    //             for(int i = 0; i < 10; ++i) {
-    //                 if(!ptrace_once(pid)) {
-    //                     return;
-    //                 }
-    //             }
-    //             if(!this->process_start(pid)) {
-    //                 return;
-    //             }
-    //         }));
-    //     }
-    //     for(auto &thread : threads) {
-    //         thread.join();
-    //     }
-    // }
-    return ;
+    ptrace_once(pid);
+    if(!this->process_start(pid)) {
+        return;
+    }
     while(true) {
-        if(!ptrace_once(pid)) {
+        std::vector<std::thread> threads;
+        const auto pids = ListThreads(pid);
+        if(pids.empty()) {
             return;
+        }
+        for(const auto pid : pids) {
+            threads.push_back(std::thread([pid, this]() {
+                if(!this->process_pause(pid)) {
+                    return;
+                }
+                for(int i = 0; i < 10; ++i) {
+                    if(!ptrace_once(pid)) {
+                        return;
+                    }
+                }
+                if(!this->process_start(pid)) {
+                    return;
+                }
+            }));
+        }
+        for(auto &thread : threads) {
+            thread.join();
         }
     }
 }
