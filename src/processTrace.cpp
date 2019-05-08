@@ -295,27 +295,27 @@ bool processProf::ptrace_once(const pid_t pid) {
             if(lastcommand[pid]) {
                 ++this->ans[pid][lastcommand[pid]][ip];
                 auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
-                std::cerr << "from " << file << " " << lltoString(offset) << '\t';
-                std::tie(file, offset) = get_offset_and_file_by_ip(ip);
-                std::cerr << " to " << file << " " << lltoString(offset) << std::endl;
+                // std::cerr << "from " << file << " " << lltoString(offset) << '\t';
+                // std::tie(file, offset) = get_offset_and_file_by_ip(ip);
+                // std::cerr << " to " << file << " " << lltoString(offset) << std::endl;
             }
             lastcommand[pid] = ip;
             return true;
-        }else{
+        } else {
             return false;
         }
     } else {
         if(lastcommand[pid]) {
             ++this->direct_count[lastcommand[pid]];
-            auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
-            std::cerr << "count " << file << " " << lltoString(offset) << std::endl;
+            // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+            // std::cerr << "count " << file << " " << lltoString(offset) << std::endl;
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
             checkip(ip, pid);
             lastcommand[pid] = ip;
             return true;
-        }else{
+        } else {
             return false;
         }
     }
@@ -323,34 +323,39 @@ bool processProf::ptrace_once(const pid_t pid) {
 }
 
 void processProf::trace(const pid_t pid) {
-    ptrace_once(pid);
-    if(!this->process_start(pid)) {
-        return;
-    }
+    // ptrace_once(pid);
+    // if(!this->process_start(pid)) {
+    //     return;
+    // }
+    // while(true) {
+    //     std::vector<std::thread> threads;
+    //     const auto pids = ListThreads(pid);
+    //     if(pids.empty()) {
+    //         return;
+    //     }
+    //     for(const auto pid : pids) {
+    //         threads.push_back(std::thread([pid, this]() {
+    //             if(!this->process_pause(pid)) {
+    //                 return;
+    //             }
+    //             for(int i = 0; i < 10; ++i) {
+    //                 if(!ptrace_once(pid)) {
+    //                     return;
+    //                 }
+    //             }
+    //             if(!this->process_start(pid)) {
+    //                 return;
+    //             }
+    //         }));
+    //     }
+    //     for(auto &thread : threads) {
+    //         thread.join();
+    //     }
+    // }
+    return ;
     while(true) {
-        std::vector<std::thread> threads;
-        const auto pids = ListThreads(pid);
-        if(pids.empty()) {
+        if(!ptrace_once(pid)) {
             return;
-        }
-        std::cout << "once" << std::endl;
-        for(const auto pid : pids) {
-            threads.push_back(std::thread([pid, this]() {
-                if(!this->process_pause(pid)) {
-                    return;
-                }
-                for(int i = 0; i < 10; ++i) {
-                    if(ptrace_once(pid)) {
-                        return;
-                    }
-                }
-                if(!this->process_start(pid)) {
-                    return;
-                }
-            }));
-        }
-        for(auto &thread : threads) {
-            thread.join();
         }
     }
 }
@@ -368,10 +373,21 @@ result_t processProf::analize_count() const {
 }
 
 void processProf::checkip(const ip_t ip, const pid_t pid) {
-    auto[file, offset] = this->get_offset_and_file_by_ip(ip);
-    if(file.empty()) {
-        reflush_map(pid);
+    auto range_it = cache_range_for_check.find(pid);
+    if(range_it != cache_range_for_check.end() && in_range(ip, range_it->second)) {
+        return;
     }
+    for(const auto &[file, ranges] : file_map) {
+        for(const auto range : ranges) {
+            if(::ptraceProf::in_range(ip, range)) {
+                cache_range_for_check[pid] = range;
+                return;
+            }
+        }
+    }
+    std::cerr << "maps change" << std::endl;
+    reflush_map(pid);
+    std::cerr << "maps read over" << std::endl;
 }
 
 bool is_dynamic_file(const std::string &file) {
