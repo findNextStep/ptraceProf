@@ -6,6 +6,7 @@
 int main(const int argc, char *argv[]) {
     std::string final_result_file;
     std::string addre_count_file, function_count_file;
+    std::string objdump_cache = "/tmp/objdump.json";
     bool single_step = false;
     const std::vector<std::string> args(argv, argv + argc);
     unsigned int last_command_pos = argc;
@@ -42,7 +43,6 @@ int main(const int argc, char *argv[]) {
     std::cout << "child_pid == " << child;
     // command line value check
     ::ptraceProf::processProf pp;
-
     std::map<std::string, std::map<std::string, ::ptraceProf::count_t> > ans;
     if(single_step) {
         std::cout << "\tin single step" << std::endl;
@@ -53,7 +53,9 @@ int main(const int argc, char *argv[]) {
         }
     } else {
         std::cout << "\tin block step" << std::endl;
+        pp.readCache(objdump_cache);
         pp.trace(child);
+        pp.writeToCache(objdump_cache);
         std::cout << "finish" << std::endl;
         if(final_result_file.size()) {
             ans = pp.analize_count();

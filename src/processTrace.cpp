@@ -11,6 +11,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <nlohmann/json.hpp> // json
+
 namespace ptraceProf {
 
 
@@ -160,6 +162,26 @@ bool may_jump(const std::string &info, const ip_t next_addre) {
     return info.find(add) != std::string::npos;
 }
 
+
+void processProf::readCache(const std::string &file) {
+    if(orderMap::file_exist(file)) {
+        std::ifstream fs(file);
+        nlohmann::json cache;
+        this->singlestep_cache.clear();
+        fs >> cache;
+        for(auto it = cache.begin(); it != cache.end(); ++it) {
+            for(auto i : it.value().get<std::vector<ip_t> >()) {
+                this->singlestep_cache[it.key()].insert(i);
+            }
+        }
+    }
+}
+
+void processProf::writeToCache(const std::string &file)const {
+    std::ofstream fs(file);
+    fs << nlohmann::json(this->singlestep_cache);
+}
+
 std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, std::tuple <
         order_t,
         std::string > > &block) {
@@ -233,7 +255,17 @@ void processProf::reflush_map(const pid_t pid) {
             // 文件不存在或者文件已经处理过
             continue;
         }
-        const auto list = update_singlestep_map(file);
+        std::set<ip_t>list;
+        if(auto it = this->singlestep_cache.find(file); it != singlestep_cache.end()) {
+            // 如果在objdump缓存中找到了，使用缓存
+            list = it->second;
+        } else {
+            // 如果没有找到，重新分析
+            list = update_singlestep_map(file);
+            for(const ip_t ip : list) {
+                this->singlestep_cache[file].insert(ip);
+            }
+        }
         if(is_dynamic_file(file)) {
             for(const auto addre : list) {
                 for(const auto range : ranges) {
@@ -279,7 +311,9 @@ bool processProf::ptrace_once(const pid_t pid) {
     if(lastcommand[pid] && !need_singlestep[lastcommand[pid]]) {
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
-            if(!checkip(ip, pid))return false;
+            if(!checkip(ip, pid)) {
+                return false;
+            }
             if(lastcommand[pid]) {
                 ++this->ans[pid][lastcommand[pid]][ip];
                 auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
@@ -300,7 +334,9 @@ bool processProf::ptrace_once(const pid_t pid) {
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
-            if(!checkip(ip, pid))return false;
+            if(!checkip(ip, pid)) {
+                return false;
+            }
             lastcommand[pid] = ip;
             return true;
         } else {

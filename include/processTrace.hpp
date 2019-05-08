@@ -193,7 +193,7 @@ result_t analize_count(const std::map<std::string, std::map<ip_t, std::map<ip_t,
  *
  * @return result
  */
-result_t analize_count( const maps &map, const block_count_t &ans);
+result_t analize_count(const maps &map, const block_count_t &ans);
 
 
 /**
@@ -223,7 +223,8 @@ private:
 
     std::unordered_map<ip_t, bool> need_singlestep;
     direct_count_t direct_count;
-    std::map<pid_t,mem_range> cache_range_for_check;
+    std::map<pid_t, mem_range> cache_range_for_check;
+    std::map<std::string,std::set<ip_t> > singlestep_cache;
 public:
 
 
@@ -259,6 +260,10 @@ protected:
 
 public:
     void trace(const pid_t pid);
+
+    void readCache(const std::string &file);
+
+    void writeToCache(const std::string &file)const;
 
     result_t analize_count() const;
 };
