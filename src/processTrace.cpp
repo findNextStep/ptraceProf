@@ -258,17 +258,15 @@ std::vector<pid_t> ListThreads(pid_t pid) {
     std::vector<pid_t> result;
     std::stringstream dirname;
     dirname << "/proc/" << pid << "/task";
-    auto *dir = opendir(dirname.str().c_str());
-    if(dir == nullptr) {
-        // fail
-        return {};
-    }
-    dirent *entry;
-    while((entry = readdir(dir)) != nullptr) {
-        std::string name = entry->d_name;
-        if(name[0] != '.') {
-            result.push_back(static_cast<pid_t>(std::stoi(name)));
+    auto ls = get_cmd_stream("ls " + dirname.str());
+    while(ls) {
+        std::string line;
+        if(std::getline(ls, line)) {
+            result.push_back(std::stoi(line));
+        } else {
+            break;
         }
+
     }
     return result;
 }
@@ -283,8 +281,7 @@ bool processProf::check_process(const pid_t pid) {
     // error catch
     // it shouldn`t happen
     fprintf(stderr, "the pid : %d can not trace but can kill\nIt shouldn`t happened\n", pid);
-    exit(1);
-    return true;
+    return false;
 }
 
 bool processProf::ptrace_once(const pid_t pid) {
