@@ -219,7 +219,6 @@ std::set<ip_t> processProf::update_singlestep_map(const std::string &file) {
 }
 
 void processProf::stop_trace(const pid_t pid) {
-    pid_order.erase(pid);
     lastcommand.erase(pid);
 }
 
@@ -227,9 +226,6 @@ void processProf::reflush_map(const pid_t pid) {
     using ::ptraceProf::mapsReader::readMaps;
     using ::ptraceProf::orderMap::getProcessCount;
     const auto new_file_map = readMaps(pid);
-    for(auto &order : this->pid_order) {
-        getProcessCount(pid, order.second);
-    }
     for(const auto [file, ranges] : new_file_map) {
         if(!::ptraceProf::orderMap::file_exist(file)
                 || file_map.find(file) != file_map.end()) {
@@ -356,7 +352,7 @@ result_t processProf::analize_count() const {
 }
 
 void processProf::checkip(const ip_t ip, const pid_t pid) {
-    auto range_it = cache_range_for_check.find(pid);
+    const auto range_it = cache_range_for_check.find(pid);
     if(range_it != cache_range_for_check.end() && in_range(ip, range_it->second)) {
         return;
     }

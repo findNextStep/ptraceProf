@@ -219,7 +219,6 @@ private:
     // std::map<std::string, std::vector<mem_range> >
     maps file_map;
 
-    std::map<pid_t, orders> pid_order;
     std::map<pid_t, ip_t> lastcommand;
 
     std::unordered_map<ip_t, bool> need_singlestep;
