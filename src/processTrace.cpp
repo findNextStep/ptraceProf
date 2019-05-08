@@ -272,16 +272,10 @@ std::vector<pid_t> ListThreads(pid_t pid) {
 }
 
 bool processProf::check_process(const pid_t pid) {
-    if(kill(pid, 0)) {
-        // process not run
-        // https://stackoverflow.com/questions/11785936/how-to-find-if-a-process-is-running-in-c
-        // process never run ,stop trace and save ans
-        return false;
-    }
-    // error catch
-    // it shouldn`t happen
-    fprintf(stderr, "the pid : %d can not trace but can kill\nIt shouldn`t happened\n", pid);
-    return false;
+    // kill if unable trace
+    // do nothing if no run
+    // just let it crash
+    kill(pid, 0);
 }
 
 bool processProf::ptrace_once(const pid_t pid) {
@@ -332,9 +326,7 @@ void processProf::trace(const pid_t pid) {
         }
         for(const auto pid : pids) {
             threads.push_back(std::thread([pid, this]() {
-                if(!this->process_pause(pid)) {
-                    return;
-                }
+                this->process_pause(pid);
                 for(int i = 0; i < 10; ++i) {
                     if(!ptrace_once(pid)) {
                         return;
