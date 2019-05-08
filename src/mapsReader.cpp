@@ -26,7 +26,7 @@ inline static auto get_mem_map_from_line(const std::string &line) {
 
 result_t readMaps(std::istream &&fs) {
     result_t result;
-    while(!fs.eof()) {
+    while(fs) {
         std::string line;
         std::getline(fs, line);
         auto [map, file] = get_mem_map_from_line(line);
