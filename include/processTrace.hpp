@@ -243,7 +243,7 @@ protected:
 
     bool ptrace_once(const pid_t pid);
 
-    void checkip(const ip_t ip, const pid_t pid);
+    bool checkip(const ip_t ip, const pid_t pid);
 
     std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip, const pid_t pid) {
         auto ans = get_offset_and_file_by_ip(ip);

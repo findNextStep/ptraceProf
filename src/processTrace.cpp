@@ -47,8 +47,8 @@ bool processProf::singlestep(const pid_t pid) {
 bool processProf::process_pause(const pid_t pid) {
     lastcommand[pid] = 0;
     if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
-        std::cerr << "fail to attach pid :" << pid << '\t';
-        std::cerr << strerror(errno) << std::endl;;
+        // std::cerr << "fail to attach pid :" << pid << '\t';
+        // std::cerr << strerror(errno) << std::endl;;
         return check_process(pid);
     }
     int status;
@@ -61,8 +61,8 @@ bool processProf::process_pause(const pid_t pid) {
 bool processProf::process_start(const pid_t pid) {
     lastcommand[pid] = 0;
     if(ptrace(PTRACE_DETACH, pid, 0, 0)) {
-        std::cerr << "fail to detach pid :" << pid << '\t';
-        std::cerr << strerror(errno) << std::endl;;
+        // std::cerr << "fail to detach pid :" << pid << '\t';
+        // std::cerr << strerror(errno) << std::endl;;
         return check_process(pid);
     }
     return true;
@@ -209,6 +209,7 @@ std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, s
 
 std::set<ip_t> processProf::update_singlestep_map(const std::string &file) {
     using ::ptraceProf::get_cmd_stream;
+    std::cout << "updating " << file << std::endl;
     auto fs = get_cmd_stream("objdump -d " + file);
     std::set<ip_t>ans;
     while(fs) {
@@ -278,7 +279,7 @@ bool processProf::ptrace_once(const pid_t pid) {
     if(lastcommand[pid] && !need_singlestep[lastcommand[pid]]) {
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
-            checkip(ip, pid);
+            if(!checkip(ip, pid))return false;
             if(lastcommand[pid]) {
                 ++this->ans[pid][lastcommand[pid]][ip];
                 auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
@@ -299,7 +300,7 @@ bool processProf::ptrace_once(const pid_t pid) {
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
-            checkip(ip, pid);
+            if(!checkip(ip, pid))return false;
             lastcommand[pid] = ip;
             return true;
         } else {
@@ -328,9 +329,7 @@ void processProf::trace(const pid_t pid) {
                         return;
                     }
                 }
-                if(!this->process_start(pid)) {
-                    return;
-                }
+                this->process_start(pid);
             }));
         }
         for(auto &thread : threads) {
@@ -351,22 +350,30 @@ result_t processProf::analize_count() const {
     return result;
 }
 
-void processProf::checkip(const ip_t ip, const pid_t pid) {
-    const auto range_it = cache_range_for_check.find(pid);
-    if(range_it != cache_range_for_check.end() && in_range(ip, range_it->second)) {
-        return;
+bool processProf::checkip(const ip_t ip, const pid_t pid) {
+    if(in_range(ip, this->cache_range_for_check[pid])) {
+        return true;
     }
     for(const auto &[file, ranges] : file_map) {
         for(const auto range : ranges) {
             if(::ptraceProf::in_range(ip, range)) {
                 cache_range_for_check[pid] = range;
-                return;
+                return true;
             }
         }
     }
-    std::cerr << "maps change" << std::endl;
+    // std::cerr << "maps change" << std::endl;
     reflush_map(pid);
-    std::cerr << "maps read over" << std::endl;
+    // std::cerr << "maps read over" << std::endl;
+    for(const auto &[file, ranges] : file_map) {
+        for(const auto range : ranges) {
+            if(::ptraceProf::in_range(ip, range)) {
+                cache_range_for_check[pid] = range;
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 bool is_dynamic_file(const std::string &file) {
