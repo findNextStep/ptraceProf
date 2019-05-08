@@ -1,12 +1,13 @@
 #!/bin/zsh
 rm test.time 
 echo "real\tuser\tsys" >> test.time
-max_i=10000000000
-for ((i=100000;i<max_i;i=i*10)){
+max_i=1000000
+readonly gap=100000
+for ((i=100000;i<max_i;i=i+gap)){
     echo -n $i >> test.time
     /usr/bin/time -o test.time -a -p -f "\t%E\t%U\t%S" ./a.out $i
 }
-for ((i=100000;i<max_i;i=i*10)){
+for ((i=100000;i<max_i;i=i+gap)){
     echo -n $i >> test.time
     /usr/bin/time -o test.time -a -p -f "\t%E\t%U\t%S" ./build/main -e ./a.out $i
 }
