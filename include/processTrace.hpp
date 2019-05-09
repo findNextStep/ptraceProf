@@ -224,7 +224,7 @@ private:
     std::unordered_map<ip_t, bool> need_singlestep;
     direct_count_t direct_count;
     std::map<pid_t, mem_range> cache_range_for_check;
-    std::map<std::string,std::set<ip_t> > singlestep_cache;
+    std::map<std::string, std::pair<timespec, std::set<ip_t> > > singlestep_cache;
 public:
 
 

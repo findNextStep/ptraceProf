@@ -163,6 +163,12 @@ bool may_jump(const std::string &info, const ip_t next_addre) {
 }
 
 
+auto get_file_last_change_time(const std::string &file) {
+    struct stat attrib;
+    stat(file.c_str(), &attrib);
+    return attrib.st_mtim;
+}
+
 void processProf::readCache(const std::string &file) {
     if(orderMap::file_exist(file)) {
         std::ifstream fs(file);
@@ -170,8 +176,14 @@ void processProf::readCache(const std::string &file) {
         this->singlestep_cache.clear();
         fs >> cache;
         for(auto it = cache.begin(); it != cache.end(); ++it) {
-            for(auto i : it.value().get<std::vector<ip_t> >()) {
-                this->singlestep_cache[it.key()].insert(i);
+            const auto change_time = it.value()["time"].get<std::vector<long long> >();
+            const auto actual_time = get_file_last_change_time(it.key());
+            if(change_time.at(0) == actual_time.tv_sec &&
+                    change_time.at(1) == actual_time.tv_nsec) {
+                for(auto i : it.value()["addre"].get<std::vector<ip_t> >()) {
+                    this->singlestep_cache[it.key()].second.insert(i);
+                }
+                this->singlestep_cache[it.key()].first = actual_time;
             }
         }
     }
@@ -179,7 +191,13 @@ void processProf::readCache(const std::string &file) {
 
 void processProf::writeToCache(const std::string &file)const {
     std::ofstream fs(file);
-    fs << nlohmann::json(this->singlestep_cache);
+    nlohmann::json js;
+    for(auto [file, _] : singlestep_cache) {
+        auto[times, addre] = _;
+        js[file]["time"] = std::vector<long long>({times.tv_sec, times.tv_nsec});
+        js[file]["addre"] = addre;
+    }
+    fs << js;
 }
 
 std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, std::tuple <
@@ -238,6 +256,7 @@ std::set<ip_t> processProf::update_singlestep_map(const std::string &file) {
         auto need_siglestep  = update_singlestep_map(::ptraceProf::dumpReader::read_block(fs));
         ans.merge(need_siglestep);
     }
+    std::cout << "updating " << file << " over" << std::endl;
     return ans;
 }
 
@@ -258,13 +277,11 @@ void processProf::reflush_map(const pid_t pid) {
         std::set<ip_t>list;
         if(auto it = this->singlestep_cache.find(file); it != singlestep_cache.end()) {
             // 如果在objdump缓存中找到了，使用缓存
-            list = it->second;
+            list = it->second.second;
         } else {
             // 如果没有找到，重新分析
             list = update_singlestep_map(file);
-            for(const ip_t ip : list) {
-                this->singlestep_cache[file].insert(ip);
-            }
+            this->singlestep_cache[file] = std::make_pair(get_file_last_change_time(file), list);
         }
         if(is_dynamic_file(file)) {
             for(const auto addre : list) {
