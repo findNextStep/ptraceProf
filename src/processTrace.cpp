@@ -86,22 +86,18 @@ ip_t force_jump(const std::string &info) {
     if(start_with(info, "bnd ")) {
         return force_jump(info.substr(4));
     }
-    std::vector<std::string> force_jump_list = {
-        "callq", "jmpq", "retq", "syscall", "jmp ", "repz retq "
+    std::set<std::string> force_jump_list = {
+        "callq", "jmpq", "retq", "syscall", "jmp", "repz retq"
     };
-    for(auto front : force_jump_list) {
-        if(start_with(info, front)) {
-            if(info.size() <= 7) {
-                return -1;
-            }
-            ip_t adder = -1;
-            std::stringstream ss(info.substr(7));
-            if(ss >> std::hex >> adder) {
-                return adder;
-            } else {
-                return -1;
-            }
+    ip_t addre = -1;
+    std::string command = "";
+    std::stringstream ss(info);
+    ss >> command >> std::hex >> addre;
+    if(force_jump_list.find(command) != force_jump_list.end()) {
+        if(addre == 0) {
+            return -1;
         }
+        return addre;
     }
     return 0;
 }
@@ -200,9 +196,7 @@ void processProf::writeToCache(const std::string &file)const {
     fs << js;
 }
 
-std::set<ip_t>processProf::update_singlestep_map(const std::map< unsigned int, std::tuple <
-        order_t,
-        std::string > > &block) {
+std::set<ip_t>processProf::update_singlestep_map(const ::ptraceProf::dumpReader::result_t &block) {
     std::set<ip_t> ans;
     if(block.size()) {
         // 当前块的路径
@@ -297,7 +291,9 @@ void processProf::reflush_map(const pid_t pid) {
             }
         }
     }
-    file_map = new_file_map;
+    for(auto [file, mem] : new_file_map) {
+        file_map[file] = mem;
+    }
 }
 
 std::vector<pid_t> ListThreads(pid_t pid) {
@@ -333,7 +329,7 @@ bool processProf::ptrace_once(const pid_t pid) {
             }
             if(lastcommand[pid]) {
                 ++this->ans[pid][lastcommand[pid]][ip];
-                auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
+                // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
                 // std::cerr << "from " << file << " " << lltoString(offset) << '\t';
                 // std::tie(file, offset) = get_offset_and_file_by_ip(ip);
                 // std::cerr << " to " << file << " " << lltoString(offset) << std::endl;
@@ -394,7 +390,8 @@ void processProf::trace(const pid_t pid) {
 result_t processProf::analize_count() const {
     auto result = ptraceProf::analize_count(this->file_map, this->direct_count);
     for(const auto&[ip, dir] : ans) {
-        for(auto [file, add_count_pair] : ptraceProf::analize_count(this->file_map, dir)) {
+        auto test = ptraceProf::analize_count(this->file_map, dir);
+        for(auto [file, add_count_pair] : test) {
             for(auto [addre, count] : add_count_pair) {
                 result[file][addre] += count;
             }
@@ -530,41 +527,30 @@ result_t analize_count(
     std::vector<std::thread> threads;
     for(const auto&[file, add_pair] : ans) {
         // TODO 线程数量检查
-        threads.push_back(std::thread([&]() {
+        threads.push_back(std::thread([&] {
             auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
-            auto block = ::ptraceProf::dumpReader::read_block(obj_s);
             std::cout << file << std::endl;
-            for(const auto&[start_offset, end_time_pair] : add_pair) {
-                while(block.find(start_offset) == block.end()) {
-                    if(!obj_s) {
-                        break;
+            while(obj_s) {
+                auto block = ::ptraceProf::dumpReader::read_block(obj_s);
+                count_t time = 0;
+                std::map<ip_t, count_t> outs;
+                for(const auto&[addre, _] : block) {
+                    const auto&[order, info] = _;
+                    if(time && !no_run(info)) {
+                        result[file][lltoString(addre)] += time;
                     }
-                    block = ::ptraceProf::dumpReader::read_block(obj_s);
-                }
-                if(!block.size()) {
-                    break;
-                }
-
-                for(const auto [end, times] : end_time_pair) {
-                    bool start = false;
-                    for(auto [addre, _] : block) {
-                        if(!start) {
-                            if(addre == start_offset) {
-                                start = true;
-                            } else {
-                                continue;
-                            }
+                    if(const auto it = add_pair.find(addre); it != add_pair.end()) {
+                        for(const auto&[end, times] : it->second) {
+                            time += times;
+                            outs[end] += times;
+                            result[file][lltoString(addre)] += times;
                         }
-                        if(no_run(std::get<1>(_))) {
-                            continue;
-                        }
-                        result[file][lltoString(addre)] += times;
-                        if(force_jump(std::get<1>(_))) {
-                            break;
-                        }
-                        if(end != -1 && may_jump(std::get<1>(_), end)) {
-                            break;
-                        }
+                    }
+                    if(auto addre = force_jump(info); addre) {
+                        time = 0;
+                        outs.clear();
+                    } else if(const auto addre = may_jump(info); addre != 0) {
+                        time -= outs[addre];
                     }
                 }
             }
