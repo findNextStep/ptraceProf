@@ -7,7 +7,7 @@ int main(const int argc, char *argv[]) {
     std::string final_result_file;
     std::string addre_count_file, function_count_file;
     std::string objdump_cache = "/tmp/objdump.json";
-    bool single_step = false;
+    bool single_step = false, full_trace = false;
     const std::vector<std::string> args(argv, argv + argc);
     unsigned int last_command_pos = argc;
     for(unsigned int i = 1; i < args.size(); ++i) {
@@ -23,6 +23,8 @@ int main(const int argc, char *argv[]) {
             addre_count_file = args[++i];
         } else if(arg == "--func-file") {
             function_count_file = args[++i];
+        } else if(arg == "--full") {
+            full_trace = true;
         } else {
             std::cerr << arg << std::endl;
             return 1;
@@ -54,7 +56,11 @@ int main(const int argc, char *argv[]) {
     } else {
         std::cout << "\tin block step" << std::endl;
         pp.readCache(objdump_cache);
-        pp.trace(child);
+        if(full_trace) {
+            pp.trace(child);
+        } else {
+            pp.traceFull(child);
+        }
         pp.writeToCache(objdump_cache);
         std::cout << "finish" << std::endl;
         if(final_result_file.size()) {
