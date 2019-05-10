@@ -1,5 +1,6 @@
 #pragma once
 
+#include "typedef.hpp"
 #include "pipe.hpp"
 #include "orderMap.hpp"
 #include "mapsReader.hpp"
@@ -14,10 +15,6 @@
 #include <thread>
 
 namespace ptraceProf {
-/* ip point */
-using ip_t = unsigned long long;
-/* count number type */
-using count_t = unsigned long long;
 /* the count for signle ip */
 using direct_count_t = std::unordered_map<ip_t, count_t>;
 /* the count for a block */
@@ -228,7 +225,7 @@ private:
 public:
 
 
-    static std::set<ip_t> update_singlestep_map(const std::map< unsigned int, std::tuple < order_t, std::string > > &block);
+    static std::set<ip_t> update_singlestep_map(const ::ptraceProf::dumpReader::result_t &block);
 
     static std::set<ip_t> update_singlestep_map(const std::string &file);
 
