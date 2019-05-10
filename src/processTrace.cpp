@@ -360,9 +360,8 @@ bool processProf::ptrace_once(const pid_t pid) {
 }
 
 void processProf::traceFull(const pid_t pid) {
-    while(ptrace_once(pid)) {
-        return;
-    }
+    while(ptrace_once(pid)) {}
+    return;
 }
 
 void processProf::trace(const pid_t pid, const int times, const int gap) {

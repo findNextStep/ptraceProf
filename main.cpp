@@ -61,7 +61,7 @@ int main(const int argc, char *argv[]) {
     } else {
         std::cout << "\tin block step" << std::endl;
         pp.readCache(objdump_cache);
-        if(full_trace) {
+        if(!full_trace) {
             pp.trace(child, trace_time, gap);
         } else {
             pp.traceFull(child);
