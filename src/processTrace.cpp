@@ -365,7 +365,7 @@ void processProf::traceFull(const pid_t pid) {
     }
 }
 
-void processProf::trace(const pid_t pid) {
+void processProf::trace(const pid_t pid, const int times, const int gap) {
     ptrace_once(pid);
     if(!this->process_start(pid)) {
         return;
@@ -377,9 +377,9 @@ void processProf::trace(const pid_t pid) {
             return;
         }
         for(const auto pid : pids) {
-            threads.push_back(std::thread([pid, this]() {
+            threads.push_back(std::thread([pid, times, this]() {
                 this->process_pause(pid);
-                for(int i = 0; i < 10; ++i) {
+                for(int i = 0; i < times; ++i) {
                     if(!ptrace_once(pid)) {
                         return;
                     }
@@ -390,6 +390,7 @@ void processProf::trace(const pid_t pid) {
         for(auto &thread : threads) {
             thread.join();
         }
+        std::this_thread::sleep_for(std::chrono::nanoseconds(gap));
     }
 }
 

@@ -9,6 +9,7 @@ int main(const int argc, char *argv[]) {
     std::string objdump_cache = "/tmp/objdump.json";
     bool single_step = false, full_trace = false;
     const std::vector<std::string> args(argv, argv + argc);
+    int trace_time = 10, gap = 0;
     unsigned int last_command_pos = argc;
     for(unsigned int i = 1; i < args.size(); ++i) {
         const std::string arg = args[i];
@@ -25,6 +26,10 @@ int main(const int argc, char *argv[]) {
             function_count_file = args[++i];
         } else if(arg == "--full") {
             full_trace = true;
+        } else if(arg == "--trace-time") {
+            trace_time = std::stoi(args[++i]);
+        } else if(arg == "--gap") {
+            gap = std::stoi(args[++i]);
         } else {
             std::cerr << arg << std::endl;
             return 1;
@@ -57,7 +62,7 @@ int main(const int argc, char *argv[]) {
         std::cout << "\tin block step" << std::endl;
         pp.readCache(objdump_cache);
         if(full_trace) {
-            pp.trace(child);
+            pp.trace(child, trace_time, gap);
         } else {
             pp.traceFull(child);
         }

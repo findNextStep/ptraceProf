@@ -11,6 +11,7 @@
 #include <set>
 #include <unordered_map>
 #include <vector>
+#include <chrono>
 
 #include <thread>
 
@@ -256,7 +257,7 @@ protected:
     }
 
 public:
-    void trace(const pid_t pid);
+    void trace(const pid_t pid, const int time, const int gap);
 
     void traceFull(const pid_t pid);
 
