@@ -18,17 +18,17 @@ int main(const int argc, char *argv[]) {
         } else if(arg == "-e" || arg == "--exec") {
             last_command_pos = i + 1;
             break;
-        } else if(arg == "-f" || arg == "--final-file") {
+        } else if(arg == "-r" || arg == "--final-file") {
             final_result_file = args[++i];
-        } else if(arg == "--addre-file") {
+        } else if(arg == "-d" || arg == "--addre-file") {
             addre_count_file = args[++i];
-        } else if(arg == "--func-file") {
+        } else if(arg == "-f" || arg == "--func-file") {
             function_count_file = args[++i];
-        } else if(arg == "--full") {
+        } else if(arg == "-a" || arg == "--full") {
             full_trace = true;
-        } else if(arg == "--trace-time") {
+        } else if(arg == "-t" || arg == "--trace-time") {
             trace_time = std::stoi(args[++i]);
-        } else if(arg == "--gap") {
+        } else if(arg == "-g" || arg == "--gap") {
             gap = std::stoi(args[++i]);
         } else {
             std::cerr << arg << std::endl;
