@@ -359,6 +359,12 @@ bool processProf::ptrace_once(const pid_t pid) {
     return false;
 }
 
+void processProf::traceFull(const pid_t pid) {
+    while(ptrace_once(pid)) {
+        return;
+    }
+}
+
 void processProf::trace(const pid_t pid) {
     ptrace_once(pid);
     if(!this->process_start(pid)) {

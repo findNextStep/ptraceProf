@@ -258,6 +258,8 @@ protected:
 public:
     void trace(const pid_t pid);
 
+    void traceFull(const pid_t pid);
+
     void readCache(const std::string &file);
 
     void writeToCache(const std::string &file)const;
