@@ -31,23 +31,29 @@ std::map<std::string, count_t> order_output(const result_t &ans) {
     return result;
 }
 
-std::map<std::string, count_t> order_output_function(const result_t &ans) {
+std::map<std::string, count_t> order_output_function(const result_t &ans, const std::string &file) {
     std::map<std::string, count_t> result;
-    for(auto [file, offset_to_times] : ans) {
-        auto dumps = get_cmd_stream("objdump -d " + file);
-        while(dumps) {
-            auto [func_name, block] =
-                dumpReader::read_block_with_func_name(dumps);
-            if(func_name.size()) {
-                for(auto [addre, _] : block) {
-                    const auto times = offset_to_times[lltoString(addre)];
-                    if(times) {
-                        result[func_name] +=
-                            offset_to_times[lltoString(addre)];
-                    }
+    const auto &offset_to_times = ans.at(file);
+    auto dumps = get_cmd_stream("objdump -d -C " + file);
+    while(dumps) {
+        auto [func_name, block] =
+            dumpReader::read_block_with_func_name(dumps);
+        if(func_name.size()) {
+            for(auto [addre, _] : block) {
+                const auto it = offset_to_times.find(lltoString(addre));
+                if(it != offset_to_times.end()) {
+                    result[func_name] += it->second;
                 }
             }
         }
+    }
+    return result;
+}
+
+std::map<std::string, count_t> order_output_function(const result_t &ans) {
+    std::map<std::string, count_t> result;
+    for(auto [file, _] : ans) {
+        result.merge(order_output_function(ans, file));
     }
     return result;
 }
