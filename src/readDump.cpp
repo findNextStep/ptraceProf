@@ -37,10 +37,12 @@ order_map deal_line_order(const std::string &line) {
 }
 
 std::string try_read_header(const std::string &line) {
-    char name[1000];
     unsigned int addr = -1;
-    if(sscanf(line.c_str(), "%x <%s>:", &addr, name) == 2) {
-        return std::string(name);
+    std::stringstream ss(line);
+    ss >> std::hex >> addr;
+    std::string func;
+    if(std::getline(ss, func)) {
+        return std::string(func.substr(2, func.size() - 4));
     } else {
         return std::string("");
     }
