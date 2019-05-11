@@ -77,12 +77,18 @@ int main(const int argc, char *argv[]) {
         of << ::nlohmann::json(ans).dump(4);
     }
     if(function_count_file.size()) {
+        if(final_result_file.empty()) {
+            ans = pp.analize_count();
+        }
         std::ofstream of(function_count_file);
         for(auto [name, time] : ::ptraceProf::order_output_function(ans)) {
             of << name << '\t' << time << '\n';
         }
     }
     if(addre_count_file.size()) {
+        if(final_result_file.empty()) {
+            ans = pp.analize_count();
+        }
         std::ofstream of(addre_count_file);
         for(auto [name, time] : ::ptraceProf::order_output(ans)) {
             of << name << '\t' << time << '\n';
