@@ -5,11 +5,10 @@ include_directories(include)
 
 include_directories(
     third_party/json/single_include
-    third_party/gethin/single_include
 )
 
 add_compile_options(-std=c++17)
-add_compile_options(-g)
+add_compile_options(-g -Wall)
 # SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
 # SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -pg")
 # SET(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")

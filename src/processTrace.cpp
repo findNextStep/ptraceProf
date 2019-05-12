@@ -317,7 +317,7 @@ bool processProf::check_process(const pid_t pid) {
     // kill if unable trace
     // do nothing if no run
     // just let it crash
-    kill(pid, 0);
+    return kill(pid, 0);
 }
 
 bool processProf::ptrace_once(const pid_t pid) {
@@ -531,11 +531,13 @@ result_t analize_count(
     const std::map<std::string, std::map<ip_t, std::map<ip_t, count_t> > > &ans) {
     result_t result;
     std::vector<std::thread> threads;
-    for(const auto&[file, add_pair] : ans) {
+    for(const auto &pair : ans) {
+        std::string file;
+        std::map<ip_t, std::map<ip_t, count_t> > add_pair;
+        std::tie(file, add_pair)= pair;
         // TODO 线程数量检查
-        threads.push_back(std::thread([&] {
+        threads.push_back(std::thread([file, add_pair, &result] {
             auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
-            std::cout << file << std::endl;
             while(obj_s) {
                 auto block = ::ptraceProf::dumpReader::read_block(obj_s);
                 count_t time = 0;
