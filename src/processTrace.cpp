@@ -196,64 +196,6 @@ void processProf::writeToCache(const std::string &file)const {
     fs << js;
 }
 
-std::set<ip_t>processProf::update_singlestep_map(const ::ptraceProf::dumpReader::result_t &block) {
-    std::set<ip_t> ans;
-    if(block.size()) {
-        // 当前块的路径
-        std::set<ip_t> has;
-        // 条件跳转的出口
-        std::set<ip_t> outs;
-        for(auto [addre, _] : block) {
-            auto [__, info] = _;
-            has.insert(addre);
-            ip_t out = 0;
-            if((out = force_jump(info)) != 0) {
-                if(outs.find(out) != outs.end()) {
-                    // 如果已经有这个寻址点的出口，标记当前队列中所有地址
-                    for(auto point : has) {
-                        ans.insert(point);
-                    }
-                }
-                has.clear();
-                outs.clear();
-            } else if((out = may_jump(info)) != 0) {
-                if(outs.find(out) != outs.end()) {
-                    // 如果已经有这个寻址点的出口，标记当前队列中所有地址
-                    for(auto point : has) {
-                        ans.insert(point);
-                    }
-                    // 清除块路径，避免重复标记
-                    has.clear();
-                } else {
-                    outs.insert(out);
-                }
-            } else if(need_check(info)) {
-                // 如果当前语句需要单步检查，标记队列中包括本句在内的所有语句
-                for(auto point : has) {
-                    ans.insert(point);
-                }
-                // 清除块路径，避免重复标记
-                has.clear();
-                ans.insert(addre);
-            }
-        }
-    }
-    return ans;
-}
-
-std::set<ip_t> processProf::update_singlestep_map(const std::string &file) {
-    using ::ptraceProf::get_cmd_stream;
-    std::cout << "updating " << file << std::endl;
-    auto fs = get_cmd_stream("objdump -d " + file);
-    std::set<ip_t>ans;
-    while(fs) {
-        auto need_siglestep  = update_singlestep_map(::ptraceProf::dumpReader::read_block(fs));
-        ans.merge(need_siglestep);
-    }
-    std::cout << "updating " << file << " over" << std::endl;
-    return ans;
-}
-
 void processProf::stop_trace(const pid_t pid) {
     lastcommand.erase(pid);
 }
