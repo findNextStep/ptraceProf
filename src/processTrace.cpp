@@ -274,7 +274,8 @@ void processProf::reflush_map(const pid_t pid) {
             list = it->second.second;
         } else {
             // 如果没有找到，重新分析
-            list = update_singlestep_map(file);
+            // list = update_singlestep_map(file);
+            list = dumpReader::get_single_step_list(file);
             this->singlestep_cache[file] = std::make_pair(get_file_last_change_time(file), list);
         }
         if(is_dynamic_file(file)) {
@@ -534,6 +535,8 @@ result_t analize_count(
     for(const auto &pair : ans) {
         std::string file;
         std::map<ip_t, std::map<ip_t, count_t> > add_pair;
+        // fix clang bug see
+        // https://stackoverflow.com/questions/46114214/lambda-implicit-capture-fails-with-variable-declared-from-structured-binding
         std::tie(file, add_pair)= pair;
         // TODO 线程数量检查
         threads.push_back(std::thread([file, add_pair, &result] {
