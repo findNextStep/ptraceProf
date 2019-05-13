@@ -1,16 +1,16 @@
 #pragma once
 
+#include <typedef.hpp>
 #include <string>
-#include <fstream>
 #include <vector>
 #include <map>
 
 namespace ptraceProf {
 namespace mapsReader {
 struct mem_range {
-    unsigned long long start;
-    unsigned long long end;
-    unsigned long long offset;
+    ip_t start;
+    ip_t end;
+    ip_t offset;
 };
 
 struct mem_map {

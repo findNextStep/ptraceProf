@@ -1,4 +1,5 @@
 #include "mapsReader.hpp"
+#include <fstream>
 
 namespace ptraceProf {
 namespace mapsReader {
@@ -14,7 +15,7 @@ inline std::string get_file_name_from_pid() {
 }
 
 inline static auto get_mem_map_from_line(const std::string &line) {
-    unsigned long long start, end, offset;
+    ip_t start, end, offset;
     char file_name[255] = "\0";
     int put = sscanf(line.c_str(), "%llx-%llx %*s %llx %*d:%*d %*d %s", &start, &end, &offset, file_name);
     if(put > 2) {

@@ -11,8 +11,7 @@ namespace ptraceProf {
 namespace orderMap {
 
 using ptraceProf::mapsReader::mem_range;
-// using result_t = std::vector < std::tuple<std::string, mem_range, std::vector<unsigned long long> > >;
-using result_t = std::vector < std::tuple<std::string, mem_range, std::vector<std::map<unsigned long long ,unsigned int> > > >;
+using result_t = std::vector < std::tuple<std::string, mem_range, std::vector<std::map<ip_t ,unsigned int> > > >;
 
 bool file_exist(const std::string &path);
 

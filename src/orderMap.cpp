@@ -45,7 +45,7 @@ bool no_repeat_map(const std::pair<std::string, std::vector<mem_range> > &file,
             count.push_back(std::make_tuple(
                                 file.first,
                                 range,
-                                std::vector<std::map<unsigned long long, unsigned int> >(range.end - range.start)));
+                                std::vector<std::map<ip_t, unsigned int> >(range.end - range.start)));
         }
     }
     return true;
