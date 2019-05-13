@@ -229,7 +229,6 @@ std::set<ip_t> get_single_step_list(const result_t &block) {
 
 std::set<ip_t> get_single_step_list(const std::string &file) {
     using ::ptraceProf::get_cmd_stream;
-    std::cout << "updating " << file << std::endl;
     auto fs = get_cmd_stream("objdump -d " + file);
     std::set<ip_t>ans;
     std::vector<std::thread> threads;
@@ -247,8 +246,9 @@ std::set<ip_t> get_single_step_list(const std::string &file) {
             const auto block = deal_queue.front();
             deal_queue.pop();
             deal_queue_lock.unlock();
-            ans.merge(get_single_step_list(block));
-
+            for (auto i:get_single_step_list(block)){
+                ans.insert(i);
+            }
         }
     };
     for(int i = 0; i < std::thread::hardware_concurrency() - 1; ++i) {
@@ -262,7 +262,6 @@ std::set<ip_t> get_single_step_list(const std::string &file) {
     for(auto &thrad : threads) {
         thrad.join();
     }
-    std::cout << "updating " << file << " over" << std::endl;
     return ans;
 }
 

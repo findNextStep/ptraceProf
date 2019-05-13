@@ -11,6 +11,8 @@
 #include <errno.h>
 #include <string.h>
 
+#include <sys/stat.h>
+
 #include <nlohmann/json.hpp> // json
 
 namespace ptraceProf {

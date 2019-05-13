@@ -223,14 +223,6 @@ private:
     direct_count_t direct_count;
     std::map<pid_t, mem_range> cache_range_for_check;
     std::map<std::string, std::pair<timespec, std::set<ip_t> > > singlestep_cache;
-public:
-
-
-    static std::set<ip_t> update_singlestep_map(const ::ptraceProf::dumpReader::result_t &block);
-
-    static std::set<ip_t> update_singlestep_map(const std::string &file);
-
-
 protected:
     void stop_trace(const pid_t pid);
     void reflush_map(const pid_t pid);

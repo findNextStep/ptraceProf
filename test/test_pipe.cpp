@@ -1,6 +1,7 @@
 #include "pipe.hpp"
 #include <string>
 #include <vector>
+#include <iostream>
 
 int main() {
     using ::ptraceProf::get_cmd_stream;
