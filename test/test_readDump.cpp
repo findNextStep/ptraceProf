@@ -2,7 +2,6 @@
 #include "typedef.hpp"
 #include "pipe.hpp"
 #include <iostream>
-#include <algorithm>
 using namespace ptraceProf;
 auto read_n_line(std::istream &a) {
     std::string s;
