@@ -1,7 +1,9 @@
 #include "readDump.hpp"
+#include "typedef.hpp"
 #include "pipe.hpp"
 #include <iostream>
 #include <algorithm>
+using namespace ptraceProf;
 auto read_n_line(std::istream &a) {
     std::string s;
     int sum = 0;
@@ -24,7 +26,6 @@ std::string lltoString(long long t) {
     ss >> result;
     return result;
 }
-using ip_t = unsigned long long;
 
 bool start_with(const std::string &base, const std::string &head) {
     for(int i = 0; i < head.size(); ++i) {
