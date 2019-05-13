@@ -10,7 +10,7 @@ namespace dumpReader {
 
 
 bool start_with(const std::string &base, const std::string &head) {
-    for(int i = 0; i < head.size(); ++i) {
+    for(unsigned int i = 0; i < head.size(); ++i) {
         if(base[i] != head[i]) {
             return false;
         }
@@ -188,10 +188,9 @@ result_t read_objdump(pipstream &&is) {
 }
 
 std::set<ip_t> get_single_step_list(const result_t &block) {
-    std::set<ip_t> ans, has;
+    std::set<ip_t> ans, has, outs;
     for(const auto&[addre, _] : block) {
         const auto &[order, info] = _;
-        std::set<ip_t> outs;
         has.insert(addre);
         ip_t out = 0;
         if((out = force_jump(info)) != 0) {
@@ -234,8 +233,12 @@ std::set<ip_t> get_single_step_list(const std::string &file) {
     std::vector<std::thread> threads;
     std::mutex deal_queue_lock;
     std::queue<dumpReader::result_t> deal_queue;
+    std::mutex ans_queue_mutex;
+    std::queue<std::set<ip_t> > ans_queue;
     bool no_finish = true;
+    int count = 0;
     auto deal_func = [&] {
+        ++count;
         while(no_finish || !deal_queue.empty()) {
             deal_queue_lock.lock();
             while(no_finish && deal_queue.empty()) {}
@@ -246,10 +249,12 @@ std::set<ip_t> get_single_step_list(const std::string &file) {
             const auto block = deal_queue.front();
             deal_queue.pop();
             deal_queue_lock.unlock();
-            for (auto i:get_single_step_list(block)){
-                ans.insert(i);
-            }
+            auto ans_tmp = get_single_step_list(block);
+            ans_queue_mutex.lock();
+            ans_queue.push(ans_tmp);
+            ans_queue_mutex.unlock();
         }
+        --count;
     };
     for(int i = 0; i < std::thread::hardware_concurrency() - 1; ++i) {
         threads.push_back(std::thread(deal_func));
@@ -258,9 +263,19 @@ std::set<ip_t> get_single_step_list(const std::string &file) {
         deal_queue.push(::ptraceProf::dumpReader::read_block(fs));
     }
     no_finish = false;
-    deal_func();
+    while(count) {
+        if(ans_queue.size()) {
+            ans.merge(ans_queue.front());
+            ans_queue.pop();
+        }
+    }
     for(auto &thrad : threads) {
         thrad.join();
+    }
+
+    while(ans_queue.size()) {
+        ans.merge(ans_queue.front());
+        ans_queue.pop();
     }
     return ans;
 }
