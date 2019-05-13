@@ -1,6 +1,3 @@
 [submodule "third_party/json"]
 	path = third_party/json
 	url = https://github.com/nlohmann/json
-[submodule "third_party/cpp-taskflow"]
-	path = third_party/cpp-taskflow
-	url = https://github.com/cpp-taskflow/cpp-taskflow
