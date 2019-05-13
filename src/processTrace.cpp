@@ -501,11 +501,11 @@ result_t analize_count(
                             result[file][lltoString(addre)] += times;
                         }
                     }
-                    if(auto addre = force_jump(info); addre) {
+                    if(const auto addred = force_jump(info); addred) {
                         time = 0;
                         outs.clear();
-                    } else if(const auto addre = may_jump(info); addre != 0) {
-                        time -= outs[addre];
+                    } else if(const auto addred = may_jump(info); addred != 0) {
+                        time -= outs[addred];
                     }
                 }
             }
