@@ -13,8 +13,6 @@
 
 #include <sys/stat.h>
 
-#include <nlohmann/json.hpp> // json
-
 namespace ptraceProf {
 
 
@@ -78,37 +76,6 @@ auto get_file_last_change_time(const std::string &file) {
     return attrib.st_mtim;
 }
 
-void processProf::readCache(const std::string &file) {
-    if(orderMap::file_exist(file)) {
-        std::ifstream fs(file);
-        nlohmann::json cache;
-        this->singlestep_cache.clear();
-        fs >> cache;
-        for(auto it = cache.begin(); it != cache.end(); ++it) {
-            const auto change_time = it.value()["time"].get<std::vector<long long> >();
-            const auto actual_time = get_file_last_change_time(it.key());
-            if(change_time.at(0) == actual_time.tv_sec &&
-                    change_time.at(1) == actual_time.tv_nsec) {
-                for(auto i : it.value()["addre"].get<std::vector<ip_t> >()) {
-                    this->singlestep_cache[it.key()].second.insert(i);
-                }
-                this->singlestep_cache[it.key()].first = actual_time;
-            }
-        }
-    }
-}
-
-void processProf::writeToCache(const std::string &file)const {
-    std::ofstream fs(file);
-    nlohmann::json js;
-    for(auto [file, _] : singlestep_cache) {
-        auto[times, addre] = _;
-        js[file]["time"] = std::vector<long long>({times.tv_sec, times.tv_nsec});
-        js[file]["addre"] = addre;
-    }
-    fs << js;
-}
-
 void processProf::stop_trace(const pid_t pid) {
     lastcommand.erase(pid);
 }
@@ -123,16 +90,7 @@ void processProf::reflush_map(const pid_t pid) {
             // 文件不存在或者文件已经处理过
             continue;
         }
-        std::set<ip_t>list;
-        if(auto it = this->singlestep_cache.find(file); it != singlestep_cache.end()) {
-            // 如果在objdump缓存中找到了，使用缓存
-            list = it->second.second;
-        } else {
-            // 如果没有找到，重新分析
-            // list = update_singlestep_map(file);
-            list = dumpReader::get_single_step_list(file);
-            this->singlestep_cache[file] = std::make_pair(get_file_last_change_time(file), list);
-        }
+        std::set<ip_t>list = cache.get_signle_step(file);
         if(is_dynamic_file(file)) {
             for(const auto addre : list) {
                 for(const auto range : ranges) {

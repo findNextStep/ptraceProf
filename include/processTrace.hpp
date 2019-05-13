@@ -5,7 +5,7 @@
 #include "orderMap.hpp"
 #include "mapsReader.hpp"
 #include "readDump.hpp"
-
+#include "dumpCache.hpp"
 
 #include <map>
 #include <set>
@@ -161,7 +161,8 @@ private:
     std::unordered_map<ip_t, bool> need_singlestep;
     direct_count_t direct_count;
     std::map<pid_t, mem_range> cache_range_for_check;
-    std::map<std::string, std::pair<timespec, std::set<ip_t> > > singlestep_cache;
+
+    dumpCache cache;
 protected:
     void stop_trace(const pid_t pid);
     void reflush_map(const pid_t pid);
@@ -192,11 +193,9 @@ public:
 
     void traceFull(const pid_t pid);
 
-    void readCache(const std::string &file);
-
-    void writeToCache(const std::string &file)const;
-
     result_t analize_count() const;
+
+    processProf(const std::string &file): cache(file) {}
 };
 
 
