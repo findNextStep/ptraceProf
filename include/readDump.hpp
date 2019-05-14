@@ -38,7 +38,7 @@ std::pair<std::string,result_t> read_block_with_func_name(pipstream &is);
 result_t read_objdump(pipstream &is);
 result_t read_objdump(pipstream &&is);
 
-std::set<ip_t> get_single_step_list(const std::string &file);
+std::pair<std::set<ip_t>,std::set<ip_t> >get_single_step_list(const std::string &file);
 
 } // DumpReader
 } // ptraceProf

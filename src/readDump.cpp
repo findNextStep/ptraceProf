@@ -99,9 +99,10 @@ result_t read_objdump(pipstream &&is) {
     return read_objdump(is);
 }
 
-std::set<ip_t> get_single_step_list(const result_t &block) {
-    std::set<ip_t> ans, has, outs;
+std::pair<std::set<ip_t>, std::set<ip_t> > get_single_step_list(const result_t &block) {
+    std::set<ip_t> ans, has, outs, all;
     for(const auto&[addre, _] : block) {
+        all.insert(addre);
         const auto &[order, info] = _;
         has.insert(addre);
         ip_t out = 0;
@@ -135,18 +136,18 @@ std::set<ip_t> get_single_step_list(const result_t &block) {
             ans.insert(addre);
         }
     }
-    return ans;
+    return std::make_pair(ans, all);
 }
 
-std::set<ip_t> get_single_step_list(const std::string &file) {
+std::pair<std::set<ip_t>, std::set<ip_t> > get_single_step_list(const std::string &file) {
     using ::ptraceProf::get_cmd_stream;
     auto fs = get_cmd_stream("objdump -d " + file);
-    std::set<ip_t>ans;
+    std::pair<std::set<ip_t>, std::set<ip_t> >ans;
     std::vector<std::thread> threads;
     std::mutex deal_queue_lock;
     std::queue<dumpReader::result_t> deal_queue;
     std::mutex ans_queue_mutex;
-    std::queue<std::set<ip_t> > ans_queue;
+    std::queue<std::pair<std::set<ip_t>, std::set<ip_t> > > ans_queue;
     bool no_finish = true;
     int count = 0;
     auto deal_func = [&] {
@@ -177,7 +178,8 @@ std::set<ip_t> get_single_step_list(const std::string &file) {
     no_finish = false;
     while(count) {
         if(ans_queue.size()) {
-            ans.merge(ans_queue.front());
+            ans.first.merge(ans_queue.front().first);
+            ans.second.merge(ans_queue.front().second);
             ans_queue.pop();
         }
     }
@@ -186,7 +188,8 @@ std::set<ip_t> get_single_step_list(const std::string &file) {
     }
 
     while(ans_queue.size()) {
-        ans.merge(ans_queue.front());
+        ans.first.merge(ans_queue.front().first);
+        ans.second.merge(ans_queue.front().second);
         ans_queue.pop();
     }
     return ans;
