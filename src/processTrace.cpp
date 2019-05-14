@@ -212,6 +212,7 @@ void processProf::trace(const pid_t pid, const int times, const int gap) {
             return;
         }
         for(const auto pid : pids) {
+            reflush_map(pid);
             threads.push_back(std::thread([pid, times, this]() {
                 this->process_pause(pid);
                 for(int i = 0; i < times; ++i) {
