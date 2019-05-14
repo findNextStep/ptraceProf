@@ -19,6 +19,7 @@ link_libraries(sqlite3)
 
 add_library(typedef src/typedef.cpp)
 add_library(processProf src/processTrace.cpp)
+add_library(dumpCache src/dumpCache.cpp)
 
 add_library(mapsReader src/mapsReader.cpp)
 add_library(orderMap src/orderMap.cpp)
@@ -26,7 +27,7 @@ add_library(pipe src/pipe.cpp)
 add_library(readDump src/readDump.cpp)
 
 add_executable(main main.cpp)
-target_link_libraries(main processProf mapsReader orderMap pipe readDump pthread typedef)
+target_link_libraries(main processProf mapsReader orderMap pipe readDump pthread typedef dumpCache)
 
 add_executable(map_read_test test/test_mapReader.cpp)
 target_link_libraries(map_read_test mapsReader typedef)
