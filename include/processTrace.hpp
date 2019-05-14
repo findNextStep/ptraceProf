@@ -1,15 +1,14 @@
 #pragma once
 
 #include "typedef.hpp"
-#include "pipe.hpp"
 #include "orderMap.hpp"
 #include "mapsReader.hpp"
-#include "readDump.hpp"
 #include "dumpCache.hpp"
 
 #include <map>
 #include <set>
 #include <unordered_map>
+#include <queue>
 #include <vector>
 #include <chrono>
 
@@ -163,6 +162,8 @@ private:
     std::map<pid_t, mem_range> cache_range_for_check;
 
     dumpCache cache;
+
+    std::queue<std::string> tasklist;
 protected:
     void stop_trace(const pid_t pid);
     void reflush_map(const pid_t pid);
@@ -173,8 +174,6 @@ protected:
     bool process_start(const pid_t pid);
 
     bool ptrace_once(const pid_t pid);
-
-    bool checkip(const ip_t ip, const pid_t pid);
 
     std::pair<std::string, unsigned int>get_offset_and_file_by_ip(const ip_t ip, const pid_t pid) {
         auto ans = get_offset_and_file_by_ip(ip);
@@ -196,6 +195,11 @@ public:
     result_t analize_count() const;
 
     processProf(const std::string &file): cache(file) {}
+    virtual~processProf() {
+        while(tasklist.size()) {
+            tasklist.pop();
+        }
+    }
 };
 
 

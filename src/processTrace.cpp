@@ -1,4 +1,5 @@
 #include "processTrace.hpp"
+#include "readDump.hpp"
 
 #include <sys/types.h> // pid_t
 #include <sys/reg.h> // RIP
@@ -10,8 +11,9 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-
 #include <sys/stat.h>
+
+#include <thread>
 
 namespace ptraceProf {
 
@@ -84,7 +86,8 @@ void processProf::reflush_map(const pid_t pid) {
             // 文件不存在或者文件已经处理过
             continue;
         }
-        std::set<ip_t>signle = cache.get_signle_step(file);
+        this->tasklist.push(file);
+        std::set<ip_t> signle = cache.get_signle_step(file);
         std::set<ip_t> addres = cache.get_full_dump(file);
         if(is_dynamic_file(file)) {
             for(const auto addre : addres) {
@@ -107,6 +110,32 @@ void processProf::reflush_map(const pid_t pid) {
     for(auto [file, mem] : new_file_map) {
         file_map[file] = mem;
     }
+    std::thread([this]() {
+        while(tasklist.size()) {
+            const std::string file = tasklist.front();
+            const auto ranges = file_map[file];
+            std::set<ip_t> signle = cache.get_signle_step(file);
+            std::set<ip_t> addres = cache.get_full_dump(file);
+            if(is_dynamic_file(file)) {
+                for(const auto addre : addres) {
+                    if(signle.find(addre) == signle.end()) {
+                        for(const auto range : ranges) {
+                            if(addre > range.offset && addre - range.offset + range.start < range.end) {
+                                noneed_singlestep[addre - range.offset + range.start] = true;
+                            }
+                        }
+                    }
+                }
+            } else {
+                for(const auto addre : addres) {
+                    if(signle.find(addre) == signle.end()) {
+                        noneed_singlestep[addre] = true;
+                    }
+                }
+            }
+            tasklist.pop();
+        }
+    });
 }
 
 std::vector<pid_t> ListThreads(pid_t pid) {
@@ -137,9 +166,6 @@ bool processProf::ptrace_once(const pid_t pid) {
     if(lastcommand[pid] && noneed_singlestep[lastcommand[pid]]) {
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
-            if(!checkip(ip, pid)) {
-                return false;
-            }
             if(lastcommand[pid]) {
                 ++this->ans[pid][lastcommand[pid]][ip];
                 // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
@@ -160,9 +186,6 @@ bool processProf::ptrace_once(const pid_t pid) {
         }
         if(this->singlestep(pid)) {
             const auto ip = get_ip(pid);
-            if(!checkip(ip, pid)) {
-                return false;
-            }
             lastcommand[pid] = ip;
             return true;
         } else {
@@ -217,32 +240,6 @@ result_t processProf::analize_count() const {
         }
     }
     return result;
-}
-
-bool processProf::checkip(const ip_t ip, const pid_t pid) {
-    if(in_range(ip, this->cache_range_for_check[pid])) {
-        return true;
-    }
-    for(const auto &[file, ranges] : file_map) {
-        for(const auto range : ranges) {
-            if(::ptraceProf::in_range(ip, range)) {
-                cache_range_for_check[pid] = range;
-                return true;
-            }
-        }
-    }
-    // std::cerr << "maps change" << std::endl;
-    reflush_map(pid);
-    // std::cerr << "maps read over" << std::endl;
-    for(const auto &[file, ranges] : file_map) {
-        for(const auto range : ranges) {
-            if(::ptraceProf::in_range(ip, range)) {
-                cache_range_for_check[pid] = range;
-                return true;
-            }
-        }
-    }
-    return false;
 }
 
 bool is_dynamic_file(const std::string &file) {
