@@ -158,7 +158,7 @@ private:
 
     std::map<pid_t, ip_t> lastcommand;
 
-    std::unordered_map<ip_t, bool> need_singlestep;
+    std::unordered_map<ip_t, bool> noneed_singlestep;
     direct_count_t direct_count;
     std::map<pid_t, mem_range> cache_range_for_check;
 

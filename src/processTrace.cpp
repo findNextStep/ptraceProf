@@ -84,18 +84,23 @@ void processProf::reflush_map(const pid_t pid) {
             // 文件不存在或者文件已经处理过
             continue;
         }
-        std::set<ip_t>list = cache.get_signle_step(file);
+        std::set<ip_t>signle = cache.get_signle_step(file);
+        std::set<ip_t> addres = cache.get_full_dump(file);
         if(is_dynamic_file(file)) {
-            for(const auto addre : list) {
-                for(const auto range : ranges) {
-                    if(addre > range.offset && addre - range.offset + range.start < range.end) {
-                        need_singlestep[addre - range.offset + range.start] = true;
+            for(const auto addre : addres) {
+                if(signle.find(addre) == signle.end()) {
+                    for(const auto range : ranges) {
+                        if(addre > range.offset && addre - range.offset + range.start < range.end) {
+                            noneed_singlestep[addre - range.offset + range.start] = true;
+                        }
                     }
                 }
             }
         } else {
-            for(const auto addre : list) {
-                need_singlestep[addre] = true;
+            for(const auto addre : addres) {
+                if(signle.find(addre) == signle.end()) {
+                    noneed_singlestep[addre] = true;
+                }
             }
         }
     }
@@ -129,7 +134,7 @@ bool processProf::check_process(const pid_t pid) {
 }
 
 bool processProf::ptrace_once(const pid_t pid) {
-    if(lastcommand[pid] && !need_singlestep[lastcommand[pid]]) {
+    if(lastcommand[pid] && noneed_singlestep[lastcommand[pid]]) {
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
             if(!checkip(ip, pid)) {
@@ -344,7 +349,7 @@ result_t analize_count(
         std::map<ip_t, std::map<ip_t, count_t> > add_pair;
         // fix clang bug see
         // https://stackoverflow.com/questions/46114214/lambda-implicit-capture-fails-with-variable-declared-from-structured-binding
-        std::tie(file, add_pair)= pair;
+        std::tie(file, add_pair) = pair;
         // TODO 线程数量检查
         threads.push_back(std::thread([file, add_pair, &result] {
             auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);

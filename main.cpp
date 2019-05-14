@@ -6,7 +6,11 @@
 int main(const int argc, char *argv[]) {
     std::string final_result_file;
     std::string addre_count_file, function_count_file;
-    std::string objdump_cache = "objdump.db";
+#ifdef SQLITE3_H
+    std::string objdump_cache = "/tmp/objdump.db";
+#else
+    std::string objdump_cache = "/tmp/objdump.json";
+#endif
     bool single_step = false, full_trace = false;
     const std::vector<std::string> args(argv, argv + argc);
     int trace_time = 10, gap = 0;
