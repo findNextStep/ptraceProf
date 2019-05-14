@@ -3,9 +3,10 @@
 
 #include <sys/stat.h>
 #include "readDump.hpp"
-#include <array>
+#ifndef  SQLITE3_H
 #include <fstream>
-#include <iostream>
+#endif
+#include <iostream> // std::cerr
 
 namespace ptraceProf {
 
@@ -102,11 +103,6 @@ bool dumpCache::has(const std::string &file)const {
         return 0;
     },
     (void *)&sql_time, &errormsg);
-    if(!(last_change_time.first == sql_time.first &&
-            last_change_time.second == sql_time.second)) {
-        std::cout << last_change_time.first << ',' << last_change_time.second << std::endl;
-        std::cout << sql_time.first << ',' << sql_time.second << std::endl;
-    }
     return last_change_time.first == sql_time.first &&
            last_change_time.second == sql_time.second;
 #else
@@ -136,7 +132,6 @@ void dumpCache::set(const std::string &file, const std::pair<std::set<ip_t>, std
         exec_sql("insert into " + last_modify_time + " VALUES(\"" + file + "\",\"" +
                  std::to_string(change_time.first) + "," + std::to_string(change_time.second) + "\");");
         std::string command = "begin;";
-        std::cout << "make command" << std::endl;
         for(const auto i : ans.first) {
             command += ("insert into " + single_step + " VALUES(\"" + file + "\",\"" +
                         std::to_string(i) + "\");");
@@ -146,9 +141,7 @@ void dumpCache::set(const std::string &file, const std::pair<std::set<ip_t>, std
                         std::to_string(i) + "\");");
         }
         command += "commit;";
-        std::cout << "launch command" << std::endl;
         exec_sql(command);
-        std::cout << "command over" << std::endl;
     }
 #else
     json[file][single_step] = ans.first;
