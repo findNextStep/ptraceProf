@@ -70,12 +70,6 @@ bool processProf::process_start(const pid_t pid) {
     return true;
 }
 
-auto get_file_last_change_time(const std::string &file) {
-    struct stat attrib;
-    stat(file.c_str(), &attrib);
-    return attrib.st_mtim;
-}
-
 void processProf::stop_trace(const pid_t pid) {
     lastcommand.erase(pid);
 }
