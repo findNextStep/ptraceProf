@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 
 #include <thread>
+#include  <iostream>
 
 namespace ptraceProf {
 
@@ -102,15 +103,17 @@ void processProf::reflush_map(const pid_t pid) {
         std::thread thread([this]() {
             while(tasklist.size()) {
                 const std::string file = tasklist.front();
-                const auto ranges = file_map[file];
                 std::set<ip_t> signle = cache.get_signle_step(file);
                 std::set<ip_t> addres = cache.get_full_dump(file);
+                std::cout << "file " << file << std::endl;
                 if(is_dynamic_file(file)) {
                     for(const auto addre : addres) {
                         if(signle.find(addre) == signle.end()) {
-                            for(const auto range : ranges) {
+                            for(const auto range : file_map[file]) {
                                 if(addre > range.offset && addre - range.offset + range.start < range.end) {
-                                    noneed_singlestep[addre - range.offset + range.start] = true;
+                                    noneed_singlestep_mutex.lock();
+                                    noneed_singlestep.insert(addre - range.offset + range.start);
+                                    noneed_singlestep_mutex.unlock();
                                     break;
                                 }
                             }
@@ -119,7 +122,7 @@ void processProf::reflush_map(const pid_t pid) {
                 } else {
                     for(const auto addre : addres) {
                         if(signle.find(addre) == signle.end()) {
-                            noneed_singlestep[addre] = true;
+                            noneed_singlestep.insert(addre);
                         }
                     }
                 }
@@ -155,7 +158,9 @@ bool processProf::check_process(const pid_t pid) {
 }
 
 bool processProf::ptrace_once(const pid_t pid) {
-    if(lastcommand[pid] && noneed_singlestep[lastcommand[pid]]) {
+    noneed_singlestep_mutex.lock();
+    if(lastcommand[pid] && noneed_singlestep.find(lastcommand[pid]) != noneed_singlestep.end()) {
+        noneed_singlestep_mutex.unlock();
         if(this->singleblock(pid)) {
             auto ip = get_ip(pid);
             if(lastcommand[pid]) {
@@ -171,6 +176,7 @@ bool processProf::ptrace_once(const pid_t pid) {
             return false;
         }
     } else {
+        noneed_singlestep_mutex.unlock();
         if(lastcommand[pid]) {
             ++this->direct_count[lastcommand[pid]];
             // auto [file, offset] = get_offset_and_file_by_ip(lastcommand[pid]);
@@ -189,9 +195,15 @@ bool processProf::ptrace_once(const pid_t pid) {
 
 void processProf::traceFull(const pid_t pid) {
     while(true) {
-        for(int i = 0; i < 20; ++i) {
-            if(!ptrace_once(pid)) {
-                return;
+        const auto pids = ListThreads(pid);
+        if(!pids.size()) {
+            return;
+        }
+        for(const auto son_pid : pids) {
+            for(int i = 0; i < 1000; ++i) {
+                if(!ptrace_once(son_pid)) {
+                    break;
+                }
             }
         }
         this->reflush_map(pid);
@@ -205,25 +217,19 @@ void processProf::trace(const pid_t pid, const int times, const int gap) {
         return;
     }
     while(true) {
-        std::vector<std::thread> threads;
         const auto pids = ListThreads(pid);
         if(pids.empty()) {
             return;
         }
+        reflush_map(pid);
         for(const auto pid : pids) {
-            reflush_map(pid);
-            threads.push_back(std::thread([pid, times, this]() {
-                this->process_pause(pid);
-                for(int i = 0; i < times; ++i) {
-                    if(!ptrace_once(pid)) {
-                        return;
-                    }
+            this->process_pause(pid);
+            for(int i = 0; i < times; ++i) {
+                if(!ptrace_once(pid)) {
+                    return;
                 }
-                this->process_start(pid);
-            }));
-        }
-        for(auto &thread : threads) {
-            thread.join();
+            }
+            this->process_start(pid);
         }
         if(gap != 0) {
             std::this_thread::sleep_for(std::chrono::nanoseconds(gap));

@@ -8,11 +8,13 @@
 #include <map>
 #include <set>
 #include <unordered_map>
+#include <unordered_set>
 #include <queue>
 #include <vector>
 #include <chrono>
 
 #include <thread>
+#include <mutex>
 
 namespace ptraceProf {
 /* the count for signle ip */
@@ -157,7 +159,8 @@ private:
 
     std::map<pid_t, ip_t> lastcommand;
 
-    std::unordered_map<ip_t, bool> noneed_singlestep;
+std::mutex noneed_singlestep_mutex;
+    std::unordered_set<ip_t> noneed_singlestep;
     direct_count_t direct_count;
 
     dumpCache cache;
