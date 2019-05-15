@@ -34,7 +34,8 @@ bool processProf::singleblock(const pid_t pid) {
     int status = 0;
     ptrace(PTRACE_SINGLEBLOCK, pid, 0, 0);
     if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-        return check_process(pid);
+        check_process(pid);
+        return false;
     }
     return true;
 }
@@ -43,7 +44,8 @@ bool processProf::singlestep(const pid_t pid) {
     int status = 0;
     ptrace(PTRACE_SINGLESTEP, pid, 0, 0);
     if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-        return check_process(pid);
+        check_process(pid);
+        return false;
     }
     return true;
 }
@@ -53,11 +55,13 @@ bool processProf::process_pause(const pid_t pid) {
     if(ptrace(PTRACE_ATTACH, pid, 0, 0)) {
         // std::cerr << "fail to attach pid :" << pid << '\t';
         // std::cerr << strerror(errno) << std::endl;;
-        return check_process(pid);
+        check_process(pid);
+        return false;
     }
     int status;
     if(waitpid(pid, &status, __WALL) != pid || !WIFSTOPPED(status)) {
-        return check_process(pid);
+        check_process(pid);
+        return false;
     }
     return true;
 }
@@ -67,7 +71,8 @@ bool processProf::process_start(const pid_t pid) {
     if(ptrace(PTRACE_DETACH, pid, 0, 0)) {
         // std::cerr << "fail to detach pid :" << pid << '\t';
         // std::cerr << strerror(errno) << std::endl;;
-        return check_process(pid);
+        check_process(pid);
+        return false;
     }
     return true;
 }
@@ -80,62 +85,48 @@ void processProf::reflush_map(const pid_t pid) {
     using ::ptraceProf::mapsReader::readMaps;
     using ::ptraceProf::orderMap::getProcessCount;
     const auto new_file_map = readMaps(pid);
-    for(const auto [file, ranges] : new_file_map) {
-        if(!::ptraceProf::orderMap::file_exist(file)
-                || file_map.find(file) != file_map.end()) {
-            // 文件不存在或者文件已经处理过
-            continue;
-        }
-        this->tasklist.push(file);
-        std::set<ip_t> signle = cache.get_signle_step(file);
-        std::set<ip_t> addres = cache.get_full_dump(file);
-        if(is_dynamic_file(file)) {
-            for(const auto addre : addres) {
-                if(signle.find(addre) == signle.end()) {
-                    for(const auto range : ranges) {
-                        if(addre > range.offset && addre - range.offset + range.start < range.end) {
-                            noneed_singlestep[addre - range.offset + range.start] = true;
-                        }
-                    }
-                }
-            }
-        } else {
-            for(const auto addre : addres) {
-                if(signle.find(addre) == signle.end()) {
-                    noneed_singlestep[addre] = true;
-                }
+    bool is_launch = !tasklist.empty();
+    bool need_launch = false;
+    for(const auto[file, ranges] : new_file_map) {
+        if(::ptraceProf::orderMap::file_exist(file)
+                && file_map.find(file) == file_map.end()) {
+            // 文件存在且未被处理过
+            this->tasklist.push(file);
+            file_map[file] = ranges;
+            if(!is_launch) {
+                need_launch = true;
             }
         }
     }
-    for(auto [file, mem] : new_file_map) {
-        file_map[file] = mem;
-    }
-    std::thread([this]() {
-        while(tasklist.size()) {
-            const std::string file = tasklist.front();
-            const auto ranges = file_map[file];
-            std::set<ip_t> signle = cache.get_signle_step(file);
-            std::set<ip_t> addres = cache.get_full_dump(file);
-            if(is_dynamic_file(file)) {
-                for(const auto addre : addres) {
-                    if(signle.find(addre) == signle.end()) {
-                        for(const auto range : ranges) {
-                            if(addre > range.offset && addre - range.offset + range.start < range.end) {
-                                noneed_singlestep[addre - range.offset + range.start] = true;
+    if(need_launch) {
+        std::thread thread([this]() {
+            while(tasklist.size()) {
+                const std::string file = tasklist.front();
+                const auto ranges = file_map[file];
+                std::set<ip_t> signle = cache.get_signle_step(file);
+                std::set<ip_t> addres = cache.get_full_dump(file);
+                if(is_dynamic_file(file)) {
+                    for(const auto addre : addres) {
+                        if(signle.find(addre) == signle.end()) {
+                            for(const auto range : ranges) {
+                                if(addre > range.offset && addre - range.offset + range.start < range.end) {
+                                    noneed_singlestep[addre - range.offset + range.start] = true;
+                                }
                             }
                         }
                     }
-                }
-            } else {
-                for(const auto addre : addres) {
-                    if(signle.find(addre) == signle.end()) {
-                        noneed_singlestep[addre] = true;
+                } else {
+                    for(const auto addre : addres) {
+                        if(signle.find(addre) == signle.end()) {
+                            noneed_singlestep[addre] = true;
+                        }
                     }
                 }
+                tasklist.pop();
             }
-            tasklist.pop();
-        }
-    });
+        });
+        thread.detach();
+    }
 }
 
 std::vector<pid_t> ListThreads(pid_t pid) {
@@ -226,7 +217,9 @@ void processProf::trace(const pid_t pid, const int times, const int gap) {
         for(auto &thread : threads) {
             thread.join();
         }
-        std::this_thread::sleep_for(std::chrono::nanoseconds(gap));
+        if(gap != 0) {
+            std::this_thread::sleep_for(std::chrono::nanoseconds(gap));
+        }
     }
 }
 
