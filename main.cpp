@@ -43,7 +43,6 @@ int main(const int argc, char *argv[]) {
     if(child == 0) {
         // in tracee process
         ::ptraceProf::ptraceThisProcess();
-        std::string process_name = "tracee with ";
         if(argc == last_command_pos) {
             execlp("./a.out", "out");
         } else {
