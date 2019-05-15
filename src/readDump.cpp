@@ -169,7 +169,12 @@ std::pair<std::set<ip_t>, std::set<ip_t> > get_single_step_list(const std::strin
         }
         --count;
     };
-    for(int i = 0; i < std::thread::hardware_concurrency() - 1; ++i) {
+    // it seems max in nowhere
+    int max_threads = [](auto a, auto b) {
+        return a > b ? a : b;
+    }
+    (std::thread::hardware_concurrency() - 1, 1);
+    for(int i = 0; i < max_threads; ++i) {
         threads.push_back(std::thread(deal_func));
     }
     while(fs) {
