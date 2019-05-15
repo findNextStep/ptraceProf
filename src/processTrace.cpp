@@ -188,7 +188,14 @@ bool processProf::ptrace_once(const pid_t pid) {
 }
 
 void processProf::traceFull(const pid_t pid) {
-    while(ptrace_once(pid)) {}
+    while(true) {
+        for(int i = 0; i < 20; ++i) {
+            if(!ptrace_once(pid)) {
+                return;
+            }
+        }
+        this->reflush_map(pid);
+    }
     return;
 }
 
