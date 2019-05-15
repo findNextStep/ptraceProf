@@ -156,7 +156,7 @@ std::set<ip_t> dumpCache::get_full_dump_set(const std::string &file)const {
 std::set<ip_t> dumpCache::get_full_dump(const std::string &file) {
     std::set<ip_t> ans;
     if(has(file)) {
-        ans = get_single_step_set(file);
+        ans = get_full_dump_set(file);
     } else {
         auto dump = dumpReader::get_single_step_list(file);
         set(file, dump);
