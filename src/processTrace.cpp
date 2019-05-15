@@ -111,6 +111,7 @@ void processProf::reflush_map(const pid_t pid) {
                             for(const auto range : ranges) {
                                 if(addre > range.offset && addre - range.offset + range.start < range.end) {
                                     noneed_singlestep[addre - range.offset + range.start] = true;
+                                    break;
                                 }
                             }
                         }
