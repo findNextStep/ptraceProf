@@ -101,11 +101,11 @@ void processProf::reflush_map(const pid_t pid) {
     }
     if(need_launch) {
         std::thread thread([this]() {
-            while(tasklist.size()) {
+            while(!tasklist.empty()) {
                 const std::string file = tasklist.front();
+                std::cout << "file        " << file << std::endl;
                 std::set<ip_t> signle = cache.get_signle_step(file);
                 std::set<ip_t> addres = cache.get_full_dump(file);
-                std::cout << "file " << file << std::endl;
                 if(is_dynamic_file(file)) {
                     for(const auto addre : addres) {
                         if(signle.find(addre) == signle.end()) {
@@ -127,6 +127,7 @@ void processProf::reflush_map(const pid_t pid) {
                     }
                 }
                 tasklist.pop();
+                std::cout << "file finish " << file << std::endl;
             }
         });
         thread.detach();
@@ -197,6 +198,10 @@ void processProf::traceFull(const pid_t pid) {
     while(true) {
         const auto pids = ListThreads(pid);
         if(!pids.size()) {
+
+            while(tasklist.size()) {
+                tasklist.pop();
+            }
             return;
         }
         for(const auto son_pid : pids) {
@@ -208,17 +213,26 @@ void processProf::traceFull(const pid_t pid) {
         }
         this->reflush_map(pid);
     }
+    while(tasklist.size()) {
+        tasklist.pop();
+    }
     return;
 }
 
 void processProf::trace(const pid_t pid, const int times, const int gap) {
     ptrace_once(pid);
     if(!this->process_start(pid)) {
+        while(tasklist.size()) {
+            tasklist.pop();
+        }
         return;
     }
     while(true) {
         const auto pids = ListThreads(pid);
         if(pids.empty()) {
+            while(tasklist.size()) {
+                tasklist.pop();
+            }
             return;
         }
         reflush_map(pid);
@@ -226,7 +240,7 @@ void processProf::trace(const pid_t pid, const int times, const int gap) {
             this->process_pause(pid);
             for(int i = 0; i < times; ++i) {
                 if(!ptrace_once(pid)) {
-                    return;
+                    break;
                 }
             }
             this->process_start(pid);
@@ -234,6 +248,9 @@ void processProf::trace(const pid_t pid, const int times, const int gap) {
         if(gap != 0) {
             std::this_thread::sleep_for(std::chrono::nanoseconds(gap));
         }
+    }
+    while(tasklist.size()) {
+        tasklist.pop();
     }
 }
 
