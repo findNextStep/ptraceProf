@@ -81,6 +81,7 @@ std::set<ip_t> dumpCache::get_signle_step(const std::string &file) {
     if(has(file)) {
         ans = get_single_step_set(file);
     } else {
+        std::cout << "read " << file << std::endl;
         auto dump = dumpReader::get_single_step_list(file);
         set(file, dump);
         ans = dump.first;
@@ -158,6 +159,7 @@ std::set<ip_t> dumpCache::get_full_dump(const std::string &file) {
     if(has(file)) {
         ans = get_full_dump_set(file);
     } else {
+        std::cout << "read " << file << std::endl;
         auto dump = dumpReader::get_single_step_list(file);
         set(file, dump);
         ans = dump.second;
