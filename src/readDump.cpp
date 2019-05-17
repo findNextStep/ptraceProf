@@ -182,9 +182,13 @@ std::pair<std::set<ip_t>, std::set<ip_t> > get_single_step_list(const std::strin
     }
     no_finish = false;
     while(count) {
-        if(ans_queue.size()) {
-            ans.first.merge(ans_queue.front().first);
-            ans.second.merge(ans_queue.front().second);
+        if(!ans_queue.empty()) {
+            for(auto i : ans_queue.front().first) {
+                ans.first.insert(i);
+            }
+            for(auto i : ans_queue.front().second) {
+                ans.second.insert(i);
+            }
             ans_queue.pop();
         }
     }
@@ -192,9 +196,13 @@ std::pair<std::set<ip_t>, std::set<ip_t> > get_single_step_list(const std::strin
         thrad.join();
     }
 
-    while(ans_queue.size()) {
-        ans.first.merge(ans_queue.front().first);
-        ans.second.merge(ans_queue.front().second);
+    while(!ans_queue.empty()) {
+        for(auto i : ans_queue.front().first) {
+            ans.first.insert(i);
+        }
+        for(auto i : ans_queue.front().second) {
+            ans.second.insert(i);
+        }
         ans_queue.pop();
     }
     return ans;
