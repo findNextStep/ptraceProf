@@ -103,7 +103,7 @@ void processProf::reflush_map(const pid_t pid) {
         std::thread thread([this]() {
             while(!tasklist.empty()) {
                 const std::string file = tasklist.front();
-                std::cout << "file        " << file << std::endl;
+                // std::cout << "file        " << file << std::endl;
                 std::set<ip_t> signle = cache.get_signle_step(file);
                 std::set<ip_t> addres = cache.get_full_dump(file);
                 if(is_dynamic_file(file)) {
@@ -122,12 +122,14 @@ void processProf::reflush_map(const pid_t pid) {
                 } else {
                     for(const auto addre : addres) {
                         if(signle.find(addre) == signle.end()) {
+                            noneed_singlestep_mutex.lock();
                             noneed_singlestep.insert(addre);
+                            noneed_singlestep_mutex.unlock();
                         }
                     }
                 }
                 tasklist.pop();
-                std::cout << "file finish " << file << std::endl;
+                // std::cout << "file finish " << file << std::endl;
             }
         });
         thread.detach();
@@ -198,7 +200,6 @@ void processProf::traceFull(const pid_t pid) {
     while(true) {
         const auto pids = ListThreads(pid);
         if(!pids.size()) {
-
             while(tasklist.size()) {
                 tasklist.pop();
             }
