@@ -2,6 +2,7 @@
 #include "afterProcess.hpp"
 #include <iostream>
 #include <nlohmann/json.hpp>
+#include <algorithm>
 
 int main(const int argc, char *argv[]) {
     std::string final_result_file;
@@ -78,13 +79,31 @@ int main(const int argc, char *argv[]) {
     }
     if(function_count_file.size()) {
         std::ofstream of(function_count_file);
-        for(auto [name, time] : ::ptraceProf::order_output_function(ans)) {
+        std::vector<std::pair<int, std::string> > result;
+        auto functions = ::ptraceProf::order_output_function(ans);
+        result.reserve(functions.size());
+        for(auto [name, time] : functions) {
+            result.push_back(std::make_pair(time, name));
+        }
+        std::sort(result.begin(), result.end(), [](auto a, auto b) {
+            return a.first > b.first;
+        });
+        for(auto [time, name] : result) {
             of << name << '\t' << time << '\n';
         }
     }
     if(addre_count_file.size()) {
         std::ofstream of(addre_count_file);
-        for(auto [name, time] : ::ptraceProf::order_output(ans)) {
+        std::vector<std::pair<int, std::string> > result;
+        auto addres = ::ptraceProf::order_output(ans);
+        result.reserve(addres.size());
+        for(auto [name, time] : addres) {
+            result.push_back(std::make_pair(time, name));
+        }
+        std::sort(result.begin(), result.end(), [](auto a, auto b) {
+            return a.first > b.first;
+        });
+        for(auto [time, name] : result) {
             of << name << '\t' << time << '\n';
         }
     }
