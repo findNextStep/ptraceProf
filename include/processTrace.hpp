@@ -159,13 +159,15 @@ private:
 
     std::map<pid_t, ip_t> lastcommand;
 
-std::mutex noneed_singlestep_mutex;
+    std::mutex noneed_singlestep_mutex;
     std::unordered_set<ip_t> noneed_singlestep;
     direct_count_t direct_count;
+    std::thread update_thread;
 
     dumpCache cache;
 
     std::queue<std::string> tasklist;
+    bool over;
 protected:
     void stop_trace(const pid_t pid);
     void reflush_map(const pid_t pid);
@@ -196,10 +198,11 @@ public:
 
     result_t analize_count() const;
 
-    processProf(const std::string &file): cache(file) {}
+    processProf(const std::string &file): cache(file),over(false) {}
     virtual~processProf() {
-        while(tasklist.size()) {
-            tasklist.pop();
+        over = true;
+        if(update_thread.joinable()) {
+            update_thread.join();
         }
     }
 };

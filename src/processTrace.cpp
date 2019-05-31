@@ -100,9 +100,15 @@ void processProf::reflush_map(const pid_t pid) {
         }
     }
     if(need_launch) {
-        std::thread thread([this]() {
-            while(!tasklist.empty()) {
+        if(update_thread.joinable()) {
+            this->update_thread.join();
+        }
+        this->update_thread = std::thread([this]() {
+            while(!over && !tasklist.empty()) {
                 const std::string file = tasklist.front();
+                if(file == "") {
+                    break;
+                }
                 // std::cout << "file        " << file << std::endl;
                 std::set<ip_t> signle = cache.get_signle_step(file);
                 std::set<ip_t> addres = cache.get_full_dump(file);
@@ -128,11 +134,12 @@ void processProf::reflush_map(const pid_t pid) {
                         }
                     }
                 }
-                tasklist.pop();
+                if(!tasklist.empty()) {
+                    tasklist.pop();
+                }
                 // std::cout << "file finish " << file << std::endl;
             }
         });
-        thread.detach();
     }
 }
 
@@ -374,33 +381,36 @@ result_t analize_count(
         // https://stackoverflow.com/questions/46114214/lambda-implicit-capture-fails-with-variable-declared-from-structured-binding
         std::tie(file, add_pair) = pair;
         // TODO 线程数量检查
-        threads.push_back(std::thread([file, add_pair, &result] {
-            auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
-            while(obj_s) {
-                auto block = ::ptraceProf::dumpReader::read_block(obj_s);
-                count_t time = 0;
-                std::map<ip_t, count_t> outs;
-                for(const auto&[addre, _] : block) {
-                    const auto&[order, info] = _;
-                    if(time && !no_run(info)) {
-                        result[file][lltoString(addre)] += time;
-                    }
-                    if(const auto it = add_pair.find(addre); it != add_pair.end()) {
-                        for(const auto&[end, times] : it->second) {
-                            time += times;
-                            outs[end] += times;
-                            result[file][lltoString(addre)] += times;
+        // don`t check if file no use
+        if(add_pair.size()) {
+            threads.push_back(std::thread([file, add_pair, &result] {
+                auto obj_s = ::ptraceProf::get_cmd_stream("objdump -d " + file);
+                while(obj_s) {
+                    auto block = ::ptraceProf::dumpReader::read_block(obj_s);
+                    count_t time = 0;
+                    std::map<ip_t, count_t> outs;
+                    for(const auto&[addre, _] : block) {
+                        const auto&[order, info] = _;
+                        if(time && !no_run(info)) {
+                            result[file][lltoString(addre)] += time;
+                        }
+                        if(const auto it = add_pair.find(addre); it != add_pair.end()) {
+                            for(const auto&[end, times] : it->second) {
+                                time += times;
+                                outs[end] += times;
+                                result[file][lltoString(addre)] += times;
+                            }
+                        }
+                        if(const auto addred = force_jump(info); addred) {
+                            time = 0;
+                            outs.clear();
+                        } else if(const auto addred = may_jump(info); addred != 0) {
+                            time -= outs[addred];
                         }
                     }
-                    if(const auto addred = force_jump(info); addred) {
-                        time = 0;
-                        outs.clear();
-                    } else if(const auto addred = may_jump(info); addred != 0) {
-                        time -= outs[addred];
-                    }
                 }
-            }
-        }));
+            }));
+        }
     }
     for(auto &thread : threads) {
         thread.join();
