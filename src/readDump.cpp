@@ -205,6 +205,7 @@ std::pair<std::set<ip_t>, std::set<ip_t> > get_single_step_list(const std::strin
         }
         ans_queue.pop();
     }
+    fs.clear();
     return ans;
 }
 

@@ -9,13 +9,15 @@ namespace ptraceProf {
 auto exec(const char *cmd) {
     std::array<char, 1024> buffer;
     std::string result;
-    std::unique_ptr<FILE, decltype(&pclose)> pipe(popen(cmd, "r"), pclose);
+    auto pipe = popen(cmd, "r");
     if(!pipe) {
+        pclose(pipe);
         throw std::runtime_error("popen() failed!");
     }
-    while(fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr) {
+    while(fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
         result += buffer.data();
     }
+    pclose(pipe);
     return std::stringstream(result);
 }
 
