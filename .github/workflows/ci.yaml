@@ -11,7 +11,7 @@ jobs:
 
     - uses: actions/checkout@v2
     - name: install depend
-      run: apt install libsqlite3-dev
+      run: sudo apt install libsqlite3-dev
     - name: clone submodule
       run: git submodule update --init --recursive
     - name: configure
